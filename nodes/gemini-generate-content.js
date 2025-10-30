@@ -154,10 +154,10 @@ module.exports = function(RED) {
             // Initialize status tracker
             const status = new NodeStatus(node);
 
-            try {
-                // Initialize variables that may be referenced in error handler
-                let model = null;
+            // Initialize variables that may be referenced in error handler
+            let model = null;
 
+            try {
                 // Validate API key
                 if (!node.apiKeyConfig || !node.apiKeyConfig.credentials || !node.apiKeyConfig.credentials.apikey) {
                     throw new Error('API key not configured. Please configure a Gemini API Key.');
@@ -298,36 +298,43 @@ module.exports = function(RED) {
                     // Build request with full conversation history
                     const request = {
                         model: model,
-                        contents: chatHistory
+                        contents: chatHistory,
+                        config: {}
                     };
 
                     // Add system instruction if provided
                     if (systemInstruction) {
-                        request.systemInstruction = {
+                        request.config.systemInstruction = {
                             parts: [{ text: systemInstruction }]
                         };
                     }
 
                     // Add generation configuration (minimal for chat)
-                    const generationConfig = {};
                     if (config.temperature !== undefined && config.temperature !== null && config.temperature !== '') {
-                        generationConfig.temperature = parseFloat(config.temperature);
-                    }
-                    if (Object.keys(generationConfig).length > 0) {
-                        request.generationConfig = generationConfig;
+                        request.config.temperature = parseFloat(config.temperature);
                     }
 
                     // Add safety settings
-                    SafetyUtils.addSafetySettings(request, config);
+                    SafetyUtils.addSafetySettings(request.config, config);
 
                     // Add grounding if enabled
                     if (config.grounding) {
-                        request.tools = [{ googleSearch: {} }];
+                        request.config.tools = [{ googleSearch: {} }];
+                    }
+
+                    // Remove empty config if nothing was added
+                    if (Object.keys(request.config).length === 0) {
+                        delete request.config;
                     }
 
                     // Call the API with full history
                     const result = await genAI.models.generateContent(request);
-                    const text = result.candidates[0].content.parts[0].text;
+                    const text = result.text;
+
+                    // Handle cases where no text is returned
+                    if (!text) {
+                        throw new Error('No response text generated. This may be due to safety filters or grounding issues.');
+                    }
 
                     // Add the model's response to the history
                     chatHistory.push({
@@ -380,21 +387,19 @@ module.exports = function(RED) {
                     // Build request with model and content
                     const request = {
                         model: model,
-                        contents: [{ 
-                            parts: Array.isArray(content) ? content : [{ text: content }] 
-                        }]
+                        contents: [{
+                            parts: Array.isArray(content) ? content : [{ text: content }]
+                        }],
+                        config: {}
                     };
-                    
+
                     // Add system instruction if provided
                     if (systemInstruction) {
-                        request.systemInstruction = {
+                        request.config.systemInstruction = {
                             parts: [{ text: systemInstruction }]
                         };
                     }
-                    
-                    // Add generation configuration with thinking options
-                    const generationConfig = {};
-                    
+
                     // Resolve thinking budget
                     let thinkingBudget = config.thinkingBudget;
                     if (config.thinkingBudgetType === 'msg' && msg[config.thinkingBudget] !== undefined) {
@@ -406,14 +411,14 @@ module.exports = function(RED) {
                     } else if (msg.thinkingBudget !== undefined) {
                         thinkingBudget = msg.thinkingBudget;
                     }
-                    
+
                     if (thinkingBudget !== undefined && thinkingBudget !== null && thinkingBudget !== '') {
-                        generationConfig.thinkingBudget = parseInt(thinkingBudget);
+                        request.config.thinkingBudget = parseInt(thinkingBudget);
                     }
-                    
+
                     // Add includeThoughts if enabled
                     if (config.includeThoughts || msg.includeThoughts) {
-                        generationConfig.includeThoughts = true;
+                        request.config.includeThoughts = true;
                     }
 
                     // Resolve temperature
@@ -429,7 +434,7 @@ module.exports = function(RED) {
                     }
 
                     if (temperature !== undefined && temperature !== null && temperature !== '') {
-                        generationConfig.temperature = parseFloat(temperature);
+                        request.config.temperature = parseFloat(temperature);
                     }
 
                     // Resolve topP
@@ -445,7 +450,7 @@ module.exports = function(RED) {
                     }
 
                     if (topP !== undefined && topP !== null && topP !== '') {
-                        generationConfig.topP = parseFloat(topP);
+                        request.config.topP = parseFloat(topP);
                     }
 
                     // Resolve topK
@@ -461,7 +466,7 @@ module.exports = function(RED) {
                     }
 
                     if (topK !== undefined && topK !== null && topK !== '') {
-                        generationConfig.topK = parseInt(topK);
+                        request.config.topK = parseInt(topK);
                     }
 
                     // Resolve maxOutputTokens
@@ -477,19 +482,20 @@ module.exports = function(RED) {
                     }
 
                     if (maxOutputTokens !== undefined && maxOutputTokens !== null && maxOutputTokens !== '') {
-                        generationConfig.maxOutputTokens = parseInt(maxOutputTokens);
-                    }
-
-                    if (Object.keys(generationConfig).length > 0) {
-                        request.generationConfig = generationConfig;
+                        request.config.maxOutputTokens = parseInt(maxOutputTokens);
                     }
 
                     // Add safety settings using shared utility
-                    SafetyUtils.addSafetySettings(request, config);
+                    SafetyUtils.addSafetySettings(request.config, config);
 
                     // Add grounding if enabled
                     if (config.grounding) {
-                        request.tools = [{ googleSearch: {} }];
+                        request.config.tools = [{ googleSearch: {} }];
+                    }
+
+                    // Remove empty config if nothing was added
+                    if (Object.keys(request.config).length === 0) {
+                        delete request.config;
                     }
 
                     // Determine output property name
@@ -500,7 +506,7 @@ module.exports = function(RED) {
                     let fullText = '';
 
                     for await (const chunk of result) {
-                        const chunkText = chunk.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                        const chunkText = chunk.text || '';
                         fullText += chunkText;
                         chunkCount++;
 
@@ -521,6 +527,11 @@ module.exports = function(RED) {
                         // Update streaming status with progress
                         status.setStreamingStatus(model, chunkCount, fullText);
                         send([chunkMsg, null]);
+                    }
+
+                    // Handle cases where no text is returned
+                    if (!fullText && chunkCount === 0) {
+                        throw new Error('No response text generated. This may be due to safety filters or grounding issues.');
                     }
 
                     // Send final message with complete response
@@ -579,21 +590,19 @@ module.exports = function(RED) {
                     // Build request with model and content
                     const request = {
                         model: model,
-                        contents: [{ 
-                            parts: Array.isArray(content) ? content : [{ text: content }] 
-                        }]
+                        contents: [{
+                            parts: Array.isArray(content) ? content : [{ text: content }]
+                        }],
+                        config: {}
                     };
-                    
+
                     // Add system instruction if provided
                     if (systemInstruction) {
-                        request.systemInstruction = {
+                        request.config.systemInstruction = {
                             parts: [{ text: systemInstruction }]
                         };
                     }
-                    
-                    // Add generation configuration with thinking options
-                    const generationConfig = {};
-                    
+
                     // Resolve thinking budget
                     let thinkingBudget = config.thinkingBudget;
                     if (config.thinkingBudgetType === 'msg' && msg[config.thinkingBudget] !== undefined) {
@@ -605,14 +614,14 @@ module.exports = function(RED) {
                     } else if (msg.thinkingBudget !== undefined) {
                         thinkingBudget = msg.thinkingBudget;
                     }
-                    
+
                     if (thinkingBudget !== undefined && thinkingBudget !== null && thinkingBudget !== '') {
-                        generationConfig.thinkingBudget = parseInt(thinkingBudget);
+                        request.config.thinkingBudget = parseInt(thinkingBudget);
                     }
-                    
+
                     // Add includeThoughts if enabled
                     if (config.includeThoughts || msg.includeThoughts) {
-                        generationConfig.includeThoughts = true;
+                        request.config.includeThoughts = true;
                     }
 
                     // Resolve temperature
@@ -628,7 +637,7 @@ module.exports = function(RED) {
                     }
 
                     if (temperature !== undefined && temperature !== null && temperature !== '') {
-                        generationConfig.temperature = parseFloat(temperature);
+                        request.config.temperature = parseFloat(temperature);
                     }
 
                     // Resolve topP
@@ -644,7 +653,7 @@ module.exports = function(RED) {
                     }
 
                     if (topP !== undefined && topP !== null && topP !== '') {
-                        generationConfig.topP = parseFloat(topP);
+                        request.config.topP = parseFloat(topP);
                     }
 
                     // Resolve topK
@@ -660,7 +669,7 @@ module.exports = function(RED) {
                     }
 
                     if (topK !== undefined && topK !== null && topK !== '') {
-                        generationConfig.topK = parseInt(topK);
+                        request.config.topK = parseInt(topK);
                     }
 
                     // Resolve maxOutputTokens
@@ -676,23 +685,29 @@ module.exports = function(RED) {
                     }
 
                     if (maxOutputTokens !== undefined && maxOutputTokens !== null && maxOutputTokens !== '') {
-                        generationConfig.maxOutputTokens = parseInt(maxOutputTokens);
-                    }
-
-                    if (Object.keys(generationConfig).length > 0) {
-                        request.generationConfig = generationConfig;
+                        request.config.maxOutputTokens = parseInt(maxOutputTokens);
                     }
 
                     // Add safety settings using shared utility
-                    SafetyUtils.addSafetySettings(request, config);
-                    
+                    SafetyUtils.addSafetySettings(request.config, config);
+
                     // Add grounding if enabled
                     if (config.grounding) {
-                        request.tools = [{ googleSearch: {} }];
+                        request.config.tools = [{ googleSearch: {} }];
+                    }
+
+                    // Remove empty config if nothing was added
+                    if (Object.keys(request.config).length === 0) {
+                        delete request.config;
                     }
 
                     const result = await genAI.models.generateContent(request);
-                    const text = result.candidates[0].content.parts[0].text;
+                    const text = result.text;
+
+                    // Handle cases where no text is returned
+                    if (!text) {
+                        throw new Error('No response text generated. This may be due to safety filters or grounding issues.');
+                    }
 
                     // Determine output property name
                     const outputProperty = config.outputProperty || 'payload';
