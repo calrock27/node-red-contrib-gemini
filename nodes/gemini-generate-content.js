@@ -262,11 +262,76 @@ module.exports = function(RED) {
                     systemInstruction = msg.systemInstruction;
                 }
 
+                // Resolve response schema for structured output
+                let responseSchema = null;
+                let responseMimeType = null;
+
+                if (config.responseFormat && config.responseFormat !== 'text') {
+                    // Set MIME type based on format
+                    if (config.responseFormat === 'json') {
+                        responseMimeType = 'application/json';
+
+                        // Build schema from properties list
+                        if (config.schemaPropertiesData) {
+                            try {
+                                const properties = JSON.parse(config.schemaPropertiesData);
+                                if (properties.length > 0) {
+                                    const schemaProperties = {};
+                                    const required = [];
+                                    const propertyOrdering = [];
+
+                                    properties.forEach(prop => {
+                                        schemaProperties[prop.name] = { type: prop.type };
+                                        propertyOrdering.push(prop.name);
+                                        if (prop.required) {
+                                            required.push(prop.name);
+                                        }
+                                    });
+
+                                    responseSchema = {
+                                        type: 'OBJECT',
+                                        properties: schemaProperties,
+                                        propertyOrdering: propertyOrdering
+                                    };
+
+                                    if (required.length > 0) {
+                                        responseSchema.required = required;
+                                    }
+                                }
+                            } catch (e) {
+                                throw new Error(`Invalid schema properties: ${e.message}`);
+                            }
+                        }
+
+                    } else if (config.responseFormat === 'enum') {
+                        responseMimeType = 'text/x.enum';
+
+                        // Build enum schema from comma-separated values
+                        if (config.enumValues) {
+                            const enumArray = config.enumValues.split(',').map(v => v.trim()).filter(v => v);
+                            if (enumArray.length > 0) {
+                                responseSchema = {
+                                    type: 'STRING',
+                                    enum: enumArray
+                                };
+                            } else {
+                                throw new Error('Enum format requires at least one value');
+                            }
+                        } else {
+                            throw new Error('Enum format requires enum values');
+                        }
+                    }
+                }
+
                 // Validate mode support
                 if (config.mode !== 'single' && config.mode !== 'streaming' && config.mode !== 'chat') {
                     throw new Error(`Mode '${config.mode}' is not yet supported. Currently supports: single, streaming, chat`);
                 }
-                
+
+                // Validate that grounding and structured output are not used together
+                if (config.grounding && responseMimeType) {
+                    throw new Error('Grounding (Google Search) cannot be used with structured output (JSON/Enum format). Please disable one of these options.');
+                }
 
                 // Initialize Google Generative AI
                 const genAI = new GoogleGenAI({apiKey: apiKey});
@@ -316,6 +381,14 @@ module.exports = function(RED) {
 
                     // Add safety settings
                     SafetyUtils.addSafetySettings(request.config, config);
+
+                    // Add structured output configuration
+                    if (responseMimeType) {
+                        request.config.responseMimeType = responseMimeType;
+                    }
+                    if (responseSchema) {
+                        request.config.responseSchema = responseSchema;
+                    }
 
                     // Add grounding if enabled
                     if (config.grounding) {
@@ -487,6 +560,14 @@ module.exports = function(RED) {
 
                     // Add safety settings using shared utility
                     SafetyUtils.addSafetySettings(request.config, config);
+
+                    // Add structured output configuration
+                    if (responseMimeType) {
+                        request.config.responseMimeType = responseMimeType;
+                    }
+                    if (responseSchema) {
+                        request.config.responseSchema = responseSchema;
+                    }
 
                     // Add grounding if enabled
                     if (config.grounding) {
@@ -690,6 +771,14 @@ module.exports = function(RED) {
 
                     // Add safety settings using shared utility
                     SafetyUtils.addSafetySettings(request.config, config);
+
+                    // Add structured output configuration
+                    if (responseMimeType) {
+                        request.config.responseMimeType = responseMimeType;
+                    }
+                    if (responseSchema) {
+                        request.config.responseSchema = responseSchema;
+                    }
 
                     // Add grounding if enabled
                     if (config.grounding) {

@@ -31,7 +31,10 @@
             systemInstruction: { value: "" },
             systemInstructionType: { value: "str" },
             outputProperty: { value: "payload" },
-            passthroughProperties: { value: false }
+            passthroughProperties: { value: false },
+            responseFormat: { value: "text" },
+            schemaPropertiesData: { value: "[]" },
+            enumValues: { value: "" }
         },
         inputs: 1,
         outputs: 2,
@@ -219,6 +222,98 @@
                     icon.removeClass("fa-caret-right").addClass("fa-caret-down");
                 }
             });
+
+            // Initialize schema properties editableList
+            $("#schema-properties-container").editableList({
+                addItem: function(container, i, opt) {
+                    var row = $('<div style="display:flex; align-items:center; gap:10px;"></div>').appendTo(container);
+
+                    var nameInput = $('<input type="text" class="property-name" placeholder="Property name" style="flex:1;">').appendTo(row);
+                    var typeSelect = $('<select class="property-type" style="width:120px;"></select>').appendTo(row);
+
+                    typeSelect.append($('<option value="STRING">String</option>'));
+                    typeSelect.append($('<option value="NUMBER">Number</option>'));
+                    typeSelect.append($('<option value="INTEGER">Integer</option>'));
+                    typeSelect.append($('<option value="BOOLEAN">Boolean</option>'));
+                    typeSelect.append($('<option value="ARRAY">Array</option>'));
+
+                    var requiredCheckbox = $('<input type="checkbox" class="property-required" style="width:auto; margin-left:5px;">').appendTo(row);
+                    $('<label style="width:auto; margin:0 5px;">Required</label>').appendTo(row);
+
+                    if (opt && opt.name) {
+                        nameInput.val(opt.name);
+                    }
+                    if (opt && opt.type) {
+                        typeSelect.val(opt.type);
+                    }
+                    if (opt && opt.required) {
+                        requiredCheckbox.prop('checked', true);
+                    }
+                },
+                removeItem: function(opt) {},
+                sortable: true,
+                removable: true
+            });
+
+            // Load existing schema properties
+            var loadedProperties = [];
+            if (node.schemaPropertiesData) {
+                try {
+                    if (typeof node.schemaPropertiesData === 'string') {
+                        loadedProperties = JSON.parse(node.schemaPropertiesData);
+                    } else if (Array.isArray(node.schemaPropertiesData)) {
+                        loadedProperties = node.schemaPropertiesData;
+                    }
+                } catch (e) {
+                    loadedProperties = [];
+                }
+            }
+
+            for (var i = 0; i < loadedProperties.length; i++) {
+                $("#schema-properties-container").editableList('addItem', loadedProperties[i]);
+            }
+
+            // Initialize enum values
+            $("#node-input-enumValues").val(node.enumValues || "");
+
+            // Initialize response format dropdown and toggle fields visibility
+            $("#node-input-responseFormat").val(node.responseFormat || "text");
+
+            function toggleResponseFields() {
+                var format = $("#node-input-responseFormat").val();
+                $("#json-properties-row").hide();
+                $("#enum-values-row").hide();
+
+                if (format === 'json') {
+                    $("#json-properties-row").show();
+                } else if (format === 'enum') {
+                    $("#enum-values-row").show();
+                }
+
+                // Check for grounding conflict
+                checkGroundingConflict();
+            }
+
+            function checkGroundingConflict() {
+                var groundingEnabled = $("#node-input-grounding").prop('checked');
+                var responseFormat = $("#node-input-responseFormat").val();
+                var hasStructuredOutput = responseFormat !== 'text';
+
+                if (groundingEnabled && hasStructuredOutput) {
+                    $("#grounding-conflict-warning").show();
+                } else {
+                    $("#grounding-conflict-warning").hide();
+                }
+            }
+
+            // Initial state
+            toggleResponseFields();
+
+            // Listen for response format changes
+            $("#node-input-responseFormat").change(toggleResponseFields);
+
+            // Listen for grounding checkbox changes
+            $("#node-input-grounding").change(checkGroundingConflict);
         },
         oneditsave: function() {
             var node = this;
@@ -279,10 +374,42 @@
             
             // Serialize to JSON string for Node-RED persistence
             var jsonString = JSON.stringify(items);
-            
+
             // Set the property as a string
             this.multimodalInputsData = jsonString;
-            
+
+            // Save structured output configuration
+            node.responseFormat = $("#node-input-responseFormat").val();
+
+            // Save schema properties
+            var properties = [];
+            var allProperties = $("#schema-properties-container").editableList('items');
+
+            allProperties.each(function(i) {
+                var nameInput = $(this).find('.property-name');
+                var typeSelect = $(this).find('.property-type');
+                var requiredCheckbox = $(this).find('.property-required');
+
+                if (nameInput.length && typeSelect.length) {
+                    var name = nameInput.val();
+                    var type = typeSelect.val();
+                    var required = requiredCheckbox.prop('checked');
+
+                    if (name && name.trim() !== '') {
+                        properties.push({
+                            name: name,
+                            type: type,
+                            required: required
+                        });
+                    }
+                }
+            });
+
+            node.schemaPropertiesData = JSON.stringify(properties);
+
+            // Save enum values
+            node.enumValues = $("#node-input-enumValues").val();
+
         }
     });
 </script>
@@ -388,6 +515,42 @@
                 </label>
                 <div style="margin-top:5px; margin-left:20px; font-size:12px; color:#666;">
                     Controls what properties are sent to downstream nodes. When <strong>disabled</strong> (default), only the configured output property is sent, creating a clean message. When <strong>enabled</strong>, all incoming message properties pass through to downstream nodes along with the output.
+                </div>
+            </div>
+
+            <div class="form-row">
+                <label for="node-input-responseFormat"><i class="fa fa-code"></i> Response Format</label>
+                <select id="node-input-responseFormat" style="width:200px;">
+                    <option value="text">Text (Default)</option>
+                    <option value="json">JSON Object</option>
+                    <option value="enum">Enum</option>
+                </select>
+                <div style="margin-top:5px; font-size:12px; color:#666;">
+                    Controls the format of the model's response. <strong>Text</strong> returns unstructured text, <strong>JSON Object</strong> enforces valid JSON output, and <strong>Enum</strong> restricts output to predefined values.
+                </div>
+            </div>
+
+            <div class="form-row" id="json-properties-row" style="display:none;">
+                <label><i class="fa fa-list"></i> JSON Properties</label>
+                <div style="margin-top:5px; font-size:12px; color:#666; margin-bottom:10px;">
+                    Define the properties for your JSON response. Properties will be returned in the order listed. Drag to reorder.
+                </div>
+                <ol id="schema-properties-container" style="min-height:100px;"></ol>
+            </div>
+
+            <div class="form-row" id="enum-values-row" style="display:none;">
+                <label for="node-input-enumValues"><i class="fa fa-tags"></i> Enum Values</label>
+                <input type="text" id="node-input-enumValues" placeholder="e.g., positive, negative, neutral" style="width:100%;">
+                <div style="margin-top:5px; font-size:12px; color:#666;">
+                    Enter allowed values separated by commas. The model will return only one of these values.
+                </div>
+            </div>
+
+            <div class="form-row" id="grounding-conflict-warning" style="display:none;">
+                <div style="padding:10px; background-color:#fff3cd; border:1px solid #ffc107; border-radius:4px;">
+                    <i class="fa fa-exclamation-triangle" style="color:#856404;"></i>
+                    <strong style="color:#856404;">Warning:</strong>
+                    <span style="color:#856404;">Grounding (Google Search) cannot be used with structured output (JSON/Enum format). Please disable one of these options.</span>
                 </div>
             </div>
         </div>
