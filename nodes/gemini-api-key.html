@@ -1,0 +1,84 @@
+<script type="text/javascript">
+    RED.nodes.registerType('gemini-api-key', {
+        category: 'config',
+        defaults: {
+            name: { value: "" }
+        },
+        credentials: {
+            apikey: { type: "password" }
+        },
+        label: function() {
+            return this.name || "Gemini API Key";
+        },
+        oneditprepare: function() {
+            // Focus on API key field when dialog opens
+            setTimeout(() => {
+                $("#node-config-input-apikey").focus();
+            }, 100);
+        },
+        oneditsave: function() {
+            // Validate API key format (basic validation)
+            var apikey = $("#node-config-input-apikey").val();
+            if (apikey && !apikey.startsWith('AI')) {
+                RED.notify("Warning: Google AI API keys typically start with 'AI'", "warning");
+            }
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="gemini-api-key">
+    <div class="form-row">
+        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-config-input-name" placeholder="Optional name for this API key">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-apikey"><i class="fa fa-key"></i> API Key</label>
+        <input type="password" id="node-config-input-apikey" placeholder="Enter your Google AI API key">
+    </div>
+    <div class="form-tips">
+        <p><strong>How to get your API key:</strong></p>
+        <ol>
+            <li>Visit <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a></li>
+            <li>Sign in with your Google account</li>
+            <li>Click "Create API Key"</li>
+            <li>Copy the generated API key and paste it above</li>
+        </ol>
+        <p><strong>Security:</strong> Your API key is stored securely and encrypted by Node-RED.</p>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="gemini-api-key">
+    <p>Configuration node for storing Google AI API credentials securely.</p>
+    
+    <h3>Configuration</h3>
+    <dl class="message-properties">
+        <dt>Name <span class="property-type">string</span></dt>
+        <dd>Optional friendly name for this API key configuration</dd>
+        
+        <dt>API Key <span class="property-type">string</span></dt>
+        <dd>Your Google AI API key obtained from Google AI Studio</dd>
+    </dl>
+    
+    <h3>Setup Instructions</h3>
+    <ol>
+        <li>Visit <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a></li>
+        <li>Sign in with your Google account</li>
+        <li>Click "Create API Key" to generate a new key</li>
+        <li>Copy the API key and paste it into the API Key field above</li>
+        <li>Optionally provide a friendly name to identify this configuration</li>
+        <li>Click "Done" to save the configuration</li>
+    </ol>
+    
+    <h3>Security</h3>
+    <p>API keys are stored using Node-RED's secure credential system. They are encrypted and never visible in exported flows.</p>
+    
+    <h3>Usage</h3>
+    <p>This configuration node is referenced by all Gemini nodes in this package. You can create multiple API key configurations if you need to use different Google AI accounts or projects.</p>
+    
+    <h3>Troubleshooting</h3>
+    <ul>
+        <li><strong>Invalid API Key:</strong> Ensure your API key is correct and has not expired</li>
+        <li><strong>Quota Exceeded:</strong> Check your usage limits in Google AI Studio</li>
+        <li><strong>Billing Issues:</strong> Verify your Google Cloud billing is set up correctly</li>
+    </ul>
+</script>

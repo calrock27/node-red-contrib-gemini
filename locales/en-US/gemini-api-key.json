@@ -1,0 +1,16 @@
+{
+    "gemini-api-key": {
+        "label": {
+            "name": "Name",
+            "apikey": "API Key"
+        },
+        "placeholder": {
+            "name": "Optional name for this API key",
+            "apikey": "Enter your Google AI API key"
+        },
+        "tips": {
+            "setup": "How to get your API key:",
+            "security": "Your API key is stored securely and encrypted by Node-RED."
+        }
+    }
+}

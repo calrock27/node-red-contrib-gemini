@@ -1,0 +1,757 @@
+<script type="text/javascript">
+    RED.nodes.registerType('gemini-generate-content', {
+        category: 'AI',
+        color: '#4285F4',
+        defaults: {
+            name: { value: "" },
+            apiKey: { value: "", type: "gemini-api-key", required: true },
+            modelSelection: { value: "gemini-2.5-flash", required: true },
+            customModel: { value: "" },
+            customModelType: { value: "str" },
+            mode: { value: "single" },
+            prompt: { value: "" },
+            promptType: { value: "str" },
+            multimodalInputsData: { value: "[]" },
+            grounding: { value: false },
+            temperature: { value: "" },
+            temperatureType: { value: "num" },
+            topP: { value: "" },
+            topPType: { value: "num" },
+            topK: { value: "" },
+            topKType: { value: "num" },
+            maxOutputTokens: { value: "" },
+            maxOutputTokensType: { value: "num" },
+            safetyHarassment: { value: "" },
+            safetyHateSpeech: { value: "" },
+            safetySexuallyExplicit: { value: "" },
+            safetyDangerousContent: { value: "" },
+            thinkingBudget: { value: "" },
+            thinkingBudgetType: { value: "num" },
+            includeThoughts: { value: false },
+            systemInstruction: { value: "" },
+            systemInstructionType: { value: "str" },
+            outputProperty: { value: "payload" },
+            passthroughProperties: { value: false }
+        },
+        inputs: 1,
+        outputs: 2,
+        outputLabels: ["success", "error"],
+        icon: "font-awesome/fa-robot",
+        label: function() {
+            return this.name || "gemini-generate-content";
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        },
+        oneditprepare: function() {
+            var node = this;
+
+            // TypedInput conditional validation utility
+            function setupConditionalValidation(fieldId, isRequired = true) {
+                const field = $(`#node-input-${fieldId}`);
+                
+                // Set up change handler for TypedInput
+                field.typedInput().on('change', function(event, type, value) {
+                    if (isRequired && type === 'str') {
+                        $(this).attr('required', true);
+                        $(this).addClass('typed-input-required');
+                    } else {
+                        $(this).removeAttr('required');
+                        $(this).removeClass('typed-input-required');
+                    }
+                });
+                
+                // Set initial state
+                const currentType = field.typedInput('type');
+                if (isRequired && currentType === 'str') {
+                    field.attr('required', true).addClass('typed-input-required');
+                } else {
+                    field.removeAttr('required').removeClass('typed-input-required');
+                }
+            }
+
+            // Initialize model selection dropdown
+            $("#node-input-modelSelection").val(node.modelSelection || "gemini-2.5-flash");
+            
+            // Initialize custom model TypedInput
+            $("#node-input-customModel").typedInput({
+                default: 'str',
+                types: ['str', 'msg', 'flow', 'global'],
+                value: node.customModel,
+                type: node.customModelType
+            });
+            
+            // Set up conditional validation for custom model
+            setupConditionalValidation('customModel', true);
+            
+            // Show/hide custom model field based on selection
+            function toggleCustomModel() {
+                if ($("#node-input-modelSelection").val() === 'custom') {
+                    $("#custom-model-row").show();
+                    // Conditional validation will handle the required state based on TypedInput type
+                } else {
+                    $("#custom-model-row").hide();
+                }
+            }
+            
+            // Initial state
+            toggleCustomModel();
+            
+            // Listen for model selection changes
+            $("#node-input-modelSelection").change(toggleCustomModel);
+
+            // Initialize TypedInput for prompt
+            $("#node-input-prompt").typedInput({
+                default: 'str',
+                types: ['str', 'msg', 'flow', 'global'],
+                value: node.prompt,
+                type: node.promptType
+            });
+            
+            // Set up conditional validation for prompt (required field)
+            setupConditionalValidation('prompt', true);
+
+            // Initialize TypedInput for temperature
+            $("#node-input-temperature").typedInput({
+                default: 'num',
+                types: ['num', 'msg', 'flow', 'global'],
+                value: node.temperature,
+                type: node.temperatureType
+            });
+
+            // Initialize TypedInput for topP
+            $("#node-input-topP").typedInput({
+                default: 'num',
+                types: ['num', 'msg', 'flow', 'global'],
+                value: node.topP,
+                type: node.topPType
+            });
+
+            // Initialize TypedInput for topK
+            $("#node-input-topK").typedInput({
+                default: 'num',
+                types: ['num', 'msg', 'flow', 'global'],
+                value: node.topK,
+                type: node.topKType
+            });
+
+            // Initialize TypedInput for maxOutputTokens
+            $("#node-input-maxOutputTokens").typedInput({
+                default: 'num',
+                types: ['num', 'msg', 'flow', 'global'],
+                value: node.maxOutputTokens,
+                type: node.maxOutputTokensType
+            });
+
+            // Initialize TypedInput for thinkingBudget
+            $("#node-input-thinkingBudget").typedInput({
+                default: 'num',
+                types: ['num', 'msg', 'flow', 'global'],
+                value: node.thinkingBudget,
+                type: node.thinkingBudgetType
+            });
+
+            // Initialize TypedInput for systemInstruction
+            $("#node-input-systemInstruction").typedInput({
+                default: 'str',
+                types: ['str', 'msg', 'flow', 'global'],
+                value: node.systemInstruction,
+                type: node.systemInstructionType
+            });
+
+            // Initialize multimodal inputs editableList
+            $("#multimodal-inputs-container").editableList({
+                addItem: function(container, i, opt) {
+                    var row = $('<div style="display:flex; align-items:center;"></div>').appendTo(container);
+                    
+                    var typeSelect = $('<select class="multimodal-type" style="width:120px; margin-right:10px;">').appendTo(row);
+                    typeSelect.append('<option value="text">Text</option>');
+                    typeSelect.append('<option value="image-url">Image (URL)</option>');
+                    typeSelect.append('<option value="image-file">Image (File Path)</option>');
+                    typeSelect.append('<option value="image-msg">Image (from msg)</option>');
+                    typeSelect.append('<option value="video-url">Video (URL)</option>');
+                    typeSelect.append('<option value="video-file">Video (File Path)</option>');
+                    typeSelect.append('<option value="video-msg">Video (from msg)</option>');
+                    
+                    var valueInput = $('<input type="text" class="multimodal-value" style="flex:1;">').appendTo(row);
+                    
+                    if (opt && opt.type) {
+                        typeSelect.val(opt.type);
+                    }
+                    if (opt && opt.value) {
+                        valueInput.val(opt.value);
+                    }
+                },
+                removeItem: function(opt) {
+                    // Item removal handled automatically
+                },
+                sortable: true,
+                removable: true
+            });
+
+            // Populate existing multimodal inputs
+            
+            var loadedItems = [];
+            if (node.multimodalInputsData) {
+                try {
+                    if (typeof node.multimodalInputsData === 'string') {
+                        loadedItems = JSON.parse(node.multimodalInputsData);
+                    } else if (Array.isArray(node.multimodalInputsData)) {
+                        loadedItems = node.multimodalInputsData;
+                    }
+                } catch (e) {
+                    loadedItems = [];
+                }
+            }
+            
+            
+            for (var i = 0; i < loadedItems.length; i++) {
+                $("#multimodal-inputs-container").editableList('addItem', loadedItems[i]);
+            }
+
+            // Advanced configuration collapsible
+            $("#advanced-config-header").click(function() {
+                $("#advanced-config-content").toggle();
+                var icon = $(this).find("i");
+                if (icon.hasClass("fa-caret-down")) {
+                    icon.removeClass("fa-caret-down").addClass("fa-caret-right");
+                } else {
+                    icon.removeClass("fa-caret-right").addClass("fa-caret-down");
+                }
+            });
+        },
+        oneditsave: function() {
+            var node = this;
+
+            // Save model selection values
+            node.modelSelection = $("#node-input-modelSelection").val();
+            node.customModel = $("#node-input-customModel").typedInput('value');
+            node.customModelType = $("#node-input-customModel").typedInput('type');
+            
+            node.prompt = $("#node-input-prompt").typedInput('value');
+            node.promptType = $("#node-input-prompt").typedInput('type');
+            
+            node.temperature = $("#node-input-temperature").typedInput('value');
+            node.temperatureType = $("#node-input-temperature").typedInput('type');
+            
+            node.topP = $("#node-input-topP").typedInput('value');
+            node.topPType = $("#node-input-topP").typedInput('type');
+            
+            node.topK = $("#node-input-topK").typedInput('value');
+            node.topKType = $("#node-input-topK").typedInput('type');
+            
+            node.maxOutputTokens = $("#node-input-maxOutputTokens").typedInput('value');
+            node.maxOutputTokensType = $("#node-input-maxOutputTokens").typedInput('type');
+            
+            node.thinkingBudget = $("#node-input-thinkingBudget").typedInput('value');
+            node.thinkingBudgetType = $("#node-input-thinkingBudget").typedInput('type');
+            
+            node.includeThoughts = $("#node-input-includeThoughts").prop('checked');
+            
+            node.systemInstruction = $("#node-input-systemInstruction").typedInput('value');
+            node.systemInstructionType = $("#node-input-systemInstruction").typedInput('type');
+            
+            node.outputProperty = $("#node-input-outputProperty").val();
+
+            // Save multimodal inputs using correct Node-RED pattern
+            var items = [];
+            var allItems = $("#multimodal-inputs-container").editableList('items');
+            
+            allItems.each(function(i) {
+                var typeSelect = $(this).find('.multimodal-type');
+                var valueInput = $(this).find('.multimodal-value');
+                
+                
+                if (typeSelect.length && valueInput.length) {
+                    var type = typeSelect.val();
+                    var value = valueInput.val();
+                    
+                    
+                    if (type && value && value.trim() !== '') {
+                        items.push({
+                            type: type,
+                            value: value
+                        });
+                    }
+                }
+            });
+            
+            
+            // Serialize to JSON string for Node-RED persistence
+            var jsonString = JSON.stringify(items);
+            
+            // Set the property as a string
+            this.multimodalInputsData = jsonString;
+            
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="gemini-generate-content">
+    <!-- Basic Configuration Section -->
+    <div class="form-section">
+        <div class="form-section-header">
+            <i class="fa fa-cogs"></i> <strong>Basic Configuration</strong>
+        </div>
+        <div class="form-section-content">
+            <div class="form-row">
+                <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+                <input type="text" id="node-input-name" placeholder="Name">
+            </div>
+            
+            <div class="form-row required">
+                <label for="node-input-apiKey"><i class="fa fa-key"></i> API Key</label>
+                <input type="text" id="node-input-apiKey" required>
+            </div>
+            
+            <div class="form-row required">
+                <label for="node-input-modelSelection"><i class="fa fa-cog"></i> Model</label>
+                <select id="node-input-modelSelection" style="width:300px;" required>
+                    <option value="">-- Select Model --</option>
+                    <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+                    <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                    <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
+                    <option value="custom">Custom</option>
+                </select>
+            </div>
+            
+            <div class="form-row has-typed-input" id="custom-model-row" style="display:none;">
+                <label for="node-input-customModel"><i class="fa fa-edit"></i> Custom Model</label>
+                <input type="text" id="node-input-customModel" style="width:100%;" placeholder="e.g., gemini-2.0-flash-exp">
+            </div>
+            
+            <div class="form-row">
+                <label style="width:100%;"><i class="fa fa-external-link"></i> Model Reference</label>
+                <div style="margin-left:10px; font-size:12px; color:#666;">
+                    <strong>Text & Chat Models:</strong><br>
+                    <a href="https://ai.google.dev/gemini-api/docs/models/gemini" target="_blank">View all available text generation models</a><br><br>
+                    <strong>Vision Models:</strong><br>
+                    <a href="https://ai.google.dev/gemini-api/docs/vision" target="_blank">Multimodal models for image/video analysis</a><br><br>
+                    <strong>Available Models:</strong><br>
+                    Check the <a href="https://ai.google.dev/gemini-api/docs/models" target="_blank">official documentation</a> for current model availability
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Content Input Configuration Section -->
+    <div class="form-section">
+        <div class="form-section-header">
+            <i class="fa fa-edit"></i> <strong>Content Input Configuration</strong>
+        </div>
+        <div class="form-section-content">
+            <div class="form-row">
+                <label for="node-input-mode"><i class="fa fa-exchange"></i> Mode</label>
+                <select id="node-input-mode" style="width:200px;">
+                    <option value="single">Single Turn</option>
+                    <option value="streaming">Streaming</option>
+                    <option value="chat">Chat (Multi-turn)</option>
+                </select>
+            </div>
+            
+            <div class="form-row has-typed-input">
+                <label for="node-input-prompt"><i class="fa fa-comment"></i> Prompt</label>
+                <input type="text" id="node-input-prompt" style="width:100%;">
+            </div>
+            
+            <div class="form-row">
+                <label for="multimodal-inputs-container"><i class="fa fa-list"></i> Multimodal Inputs</label>
+                <ol id="multimodal-inputs-container"></ol>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-grounding"><i class="fa fa-search"></i> Grounding</label>
+                <input type="checkbox" id="node-input-grounding" style="width:auto;">
+                <label for="node-input-grounding" style="width:auto; margin-left:5px;">Enable Grounding with Google Search</label>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Output Configuration Section -->
+    <div class="form-section">
+        <div class="form-section-header">
+            <i class="fa fa-sign-out"></i> <strong>Output Configuration</strong>
+        </div>
+        <div class="form-section-content">
+            <div class="form-row">
+                <label for="node-input-outputProperty"><i class="fa fa-sign-out"></i> Output Property</label>
+                <input type="text" id="node-input-outputProperty" style="width:200px;" placeholder="payload">
+                <div style="margin-top:5px; font-size:12px; color:#666;">
+                    Message property to store the generated content. Default is "payload".
+                </div>
+            </div>
+
+            <div class="form-row">
+                <label for="node-input-passthroughProperties" style="width:auto;">
+                    <input type="checkbox" id="node-input-passthroughProperties" style="display:inline-block; width:auto; vertical-align:middle; margin:0 5px 0 0;">
+                    <span style="vertical-align:middle;">Passthrough Additional Properties</span>
+                </label>
+                <div style="margin-top:5px; margin-left:20px; font-size:12px; color:#666;">
+                    Controls what properties are sent to downstream nodes. When <strong>disabled</strong> (default), only the configured output property is sent, creating a clean message. When <strong>enabled</strong>, all incoming message properties pass through to downstream nodes along with the output.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Advanced Configuration Section -->
+    <div class="form-section">
+        <div class="form-section-header-collapsible" id="advanced-config-header">
+            <i class="fa fa-caret-right"></i> <strong>Advanced Configuration</strong>
+        </div>
+        <div class="form-section-content-collapsible" id="advanced-config-content" style="display:none;">
+            <div class="form-row">
+                <label for="node-input-systemInstruction"><i class="fa fa-user-circle"></i> System Instruction</label>
+                <input type="text" id="node-input-systemInstruction" style="width:100%;">
+                <div style="margin-top:5px; font-size:12px; color:#666;">
+                    Set model persona, role, or context (e.g., "You are a helpful assistant", "Act as a technical writer")
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <label style="width:100%; margin-bottom:10px;"><strong>Generation Parameters</strong></label>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-temperature"><i class="fa fa-thermometer-half"></i> Temperature</label>
+                <input type="text" id="node-input-temperature" style="width:200px;">
+                <span style="margin-left:10px; color:#666;">Creativity (0.0-2.0)</span>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-topP"><i class="fa fa-filter"></i> Top P</label>
+                <input type="text" id="node-input-topP" style="width:200px;">
+                <span style="margin-left:10px; color:#666;">Nucleus sampling (0.0-1.0)</span>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-topK"><i class="fa fa-sort-numeric-asc"></i> Top K</label>
+                <input type="text" id="node-input-topK" style="width:200px;">
+                <span style="margin-left:10px; color:#666;">Token candidates (1-40)</span>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-maxOutputTokens"><i class="fa fa-text-width"></i> Max Output Tokens</label>
+                <input type="text" id="node-input-maxOutputTokens" style="width:200px;">
+                <span style="margin-left:10px; color:#666;">Maximum response length</span>
+            </div>
+            
+            <div class="form-row">
+                <label style="width:100%; margin-bottom:10px;"><strong>Thinking Options</strong></label>
+                <div style="margin-left:10px; font-size:12px; color:#666; margin-bottom:10px;">
+                    <a href="https://ai.google.dev/gemini-api/docs/thinking" target="_blank">View thinking mode documentation and configuration options</a>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-thinkingBudget"><i class="fa fa-brain"></i> Thinking Budget</label>
+                <input type="text" id="node-input-thinkingBudget" style="width:200px;">
+                <span style="margin-left:10px; color:#666;">-1: Dynamic, 0: Disabled, or token count</span>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-includeThoughts"><i class="fa fa-lightbulb-o"></i> Include Thoughts</label>
+                <input type="checkbox" id="node-input-includeThoughts" style="width:auto;">
+                <label for="node-input-includeThoughts" style="width:auto; margin-left:5px;">Include reasoning summaries in response</label>
+            </div>
+            
+            <div class="form-row">
+                <label style="width:100%; margin-bottom:10px;"><strong>Safety Settings</strong></label>
+                <div style="margin-left:10px; font-size:12px; color:#666; margin-bottom:10px;">
+                    Configure content filtering thresholds. Leave empty to use API defaults.
+                    <a href="https://ai.google.dev/gemini-api/docs/safety-settings" target="_blank">Learn more</a>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <label for="node-input-safetyHarassment" style="width:150px;">Harassment</label>
+                <select id="node-input-safetyHarassment" style="width:250px;">
+                    <option value="">-- Not Set --</option>
+                    <option value="HARM_BLOCK_THRESHOLD_UNSPECIFIED">Unspecified (API Default)</option>
+                    <option value="BLOCK_LOW_AND_ABOVE">Block Low and Above</option>
+                    <option value="BLOCK_MEDIUM_AND_ABOVE">Block Medium and Above</option>
+                    <option value="BLOCK_ONLY_HIGH">Block Only High</option>
+                    <option value="BLOCK_NONE">Block None</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <label for="node-input-safetyHateSpeech" style="width:150px;">Hate Speech</label>
+                <select id="node-input-safetyHateSpeech" style="width:250px;">
+                    <option value="">-- Not Set --</option>
+                    <option value="HARM_BLOCK_THRESHOLD_UNSPECIFIED">Unspecified (API Default)</option>
+                    <option value="BLOCK_LOW_AND_ABOVE">Block Low and Above</option>
+                    <option value="BLOCK_MEDIUM_AND_ABOVE">Block Medium and Above</option>
+                    <option value="BLOCK_ONLY_HIGH">Block Only High</option>
+                    <option value="BLOCK_NONE">Block None</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <label for="node-input-safetySexuallyExplicit" style="width:150px;">Sexually Explicit</label>
+                <select id="node-input-safetySexuallyExplicit" style="width:250px;">
+                    <option value="">-- Not Set --</option>
+                    <option value="HARM_BLOCK_THRESHOLD_UNSPECIFIED">Unspecified (API Default)</option>
+                    <option value="BLOCK_LOW_AND_ABOVE">Block Low and Above</option>
+                    <option value="BLOCK_MEDIUM_AND_ABOVE">Block Medium and Above</option>
+                    <option value="BLOCK_ONLY_HIGH">Block Only High</option>
+                    <option value="BLOCK_NONE">Block None</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <label for="node-input-safetyDangerousContent" style="width:150px;">Dangerous Content</label>
+                <select id="node-input-safetyDangerousContent" style="width:250px;">
+                    <option value="">-- Not Set --</option>
+                    <option value="HARM_BLOCK_THRESHOLD_UNSPECIFIED">Unspecified (API Default)</option>
+                    <option value="BLOCK_LOW_AND_ABOVE">Block Low and Above</option>
+                    <option value="BLOCK_MEDIUM_AND_ABOVE">Block Medium and Above</option>
+                    <option value="BLOCK_ONLY_HIGH">Block Only High</option>
+                    <option value="BLOCK_NONE">Block None</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        .form-section {
+            margin-bottom: 20px;
+        }
+        .form-section-header {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px 4px 0 0;
+            padding: 8px 12px;
+            font-weight: bold;
+            color: #495057;
+            border-bottom: none;
+        }
+        .form-section-header-collapsible {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-weight: bold;
+            color: #495057;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        .form-section-header-collapsible:hover {
+            background: #e9ecef;
+        }
+        .form-section-content {
+            border: 1px solid #dee2e6;
+            border-radius: 0 0 4px 4px;
+            padding: 15px;
+            background: #ffffff;
+        }
+        .form-section-content-collapsible {
+            padding: 15px;
+            background: #ffffff;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .form-section .form-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        /* Conditional required field styling */
+        .typed-input-required {
+            border-color: #ff6b6b !important;
+            box-shadow: 0 0 3px rgba(255, 107, 107, 0.3) !important;
+        }
+        
+        .typed-input-required::before {
+            content: "* ";
+            color: #ff6b6b;
+            font-weight: bold;
+        }
+        
+        /* Visual indicator for required fields that depend on TypedInput type */
+        .form-row.has-typed-input label::after {
+            content: " (required when set to 'string')";
+            font-size: 11px;
+            color: #666;
+            font-weight: normal;
+        }
+        
+        /* Required Field Styling */
+        .form-row.required label::after {
+            content: " *";
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .form-row.required input,
+        .form-row.required select {
+            border-left: 3px solid #dc3545;
+        }
+        
+        .form-row.required input:valid,
+        .form-row.required select:valid {
+            border-left-color: #28a745;
+        }
+        
+        .form-row.required input[type="text"]:not(:placeholder-shown),
+        .form-row.required select:not([value=""]) {
+            border-left-color: #28a745;
+        }
+    </style>
+</script>
+
+<script type="text/html" data-help-name="gemini-generate-content">
+    <p>A comprehensive node for Google Gemini AI text generation, chat, and vision tasks.</p>
+    
+    <h3>Configuration</h3>
+    <dl class="message-properties">
+        <dt>API Key <span class="property-type">gemini-api-key</span></dt>
+        <dd>Reference to a Gemini API Key configuration node</dd>
+        
+        <dt>Model <span class="property-type">string</span></dt>
+        <dd>The Gemini model to use. Can be set from configuration or <code>msg.model</code></dd>
+        
+        <dt>Mode <span class="property-type">string</span></dt>
+        <dd>
+            <ul>
+                <li><strong>Single Turn:</strong> One-off requests</li>
+                <li><strong>Streaming:</strong> Tokens sent as generated (multiple outputs)</li>
+                <li><strong>Chat:</strong> Multi-turn conversation using <code>msg.topic</code> as session ID</li>
+            </ul>
+        </dd>
+        
+        <dt>Prompt <span class="property-type">string</span></dt>
+        <dd>Primary text prompt. Supports mustache templating and can be set from message properties</dd>
+        
+        <dt>Multimodal Inputs <span class="property-type">array</span></dt>
+        <dd>Additional content parts for vision and multimodal tasks:
+            <ul>
+                <li><strong>Text:</strong> Additional text content</li>
+                <li><strong>Image/Video (URL):</strong> Media from web URL</li>
+                <li><strong>Image/Video (File Path):</strong> Local file path</li>
+                <li><strong>Image/Video (from msg):</strong> Base64 or Buffer from message property</li>
+            </ul>
+        </dd>
+        
+        <dt>Grounding <span class="property-type">boolean</span></dt>
+        <dd>Enable Google Search integration for real-time information</dd>
+        
+        <dt>Output Property <span class="property-type">string</span></dt>
+        <dd>Message property name to store the generated content:
+            <ul>
+                <li>Default is "payload" if left blank</li>
+                <li>Can be any valid message property name</li>
+                <li>Useful for preserving existing payload data</li>
+            </ul>
+        </dd>
+    </dl>
+    
+    <h3>Advanced Configuration</h3>
+    <dl class="message-properties">
+        <dt>System Instruction <span class="property-type">string</span></dt>
+        <dd>Set model persona, role, or context to guide behavior:
+            <ul>
+                <li>"You are a helpful assistant" - General assistance role</li>
+                <li>"Act as a technical writer" - Specific professional role</li>
+                <li>"Respond in a formal tone" - Communication style guidance</li>
+                <li>Supports TypedInput for dynamic instructions</li>
+            </ul>
+        </dd>
+        
+        <dt>Temperature <span class="property-type">number</span></dt>
+        <dd>Controls creativity/randomness (0.0-2.0). Higher values = more creative</dd>
+        
+        <dt>Top P <span class="property-type">number</span></dt>
+        <dd>Nucleus sampling parameter (0.0-1.0). Controls diversity of word choices</dd>
+        
+        <dt>Top K <span class="property-type">number</span></dt>
+        <dd>Limits token candidates (1-40). Lower values = more focused responses</dd>
+        
+        <dt>Max Output Tokens <span class="property-type">number</span></dt>
+        <dd>Maximum length of generated response</dd>
+        
+        <dt>Thinking Budget <span class="property-type">number</span></dt>
+        <dd>Controls the model's reasoning depth and token allocation for thinking:
+            <ul>
+                <li><strong>-1:</strong> Dynamic thinking (model adjusts automatically)</li>
+                <li><strong>0:</strong> Disable thinking</li>
+                <li><strong>Positive number:</strong> Specific token budget for thinking</li>
+            </ul>
+            Ranges vary by model: 2.5 Pro (128-32,768), 2.5 Flash (0-24,576), 2.5 Flash-Lite (512-24,576)
+        </dd>
+        
+        <dt>Include Thoughts <span class="property-type">boolean</span></dt>
+        <dd>When enabled, includes reasoning summaries in the response, providing insights into the model's thinking process</dd>
+        
+        <dt>Safety Settings <span class="property-type">object</span></dt>
+        <dd>Content filtering thresholds for Harassment, Hate Speech, Sexually Explicit, and Dangerous Content</dd>
+    </dl>
+    
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">string | object</span></dt>
+        <dd>Input content or prompt text</dd>
+        
+        <dt>topic <span class="property-type">string</span></dt>
+        <dd>Chat session ID (for multi-turn conversations)</dd>
+        
+        <dt>model <span class="property-type">string</span></dt>
+        <dd>Override configured model</dd>
+        
+        <dt>temperature <span class="property-type">number</span></dt>
+        <dd>Override configured temperature</dd>
+        
+        <dt>thinkingBudget <span class="property-type">number</span></dt>
+        <dd>Override configured thinking budget</dd>
+        
+        <dt>includeThoughts <span class="property-type">boolean</span></dt>
+        <dd>Override configured include thoughts setting</dd>
+        
+        <dt>multimodal <span class="property-type">array</span></dt>
+        <dd>Additional multimodal content parts</dd>
+    </dl>
+    
+    <h3>Outputs</h3>
+    <h4>Output 1 (Success)</h4>
+    <dl class="message-properties">
+        <dt>[outputProperty] <span class="property-type">string | object</span></dt>
+        <dd>Generated content from Gemini stored in the configured output property (default: payload)</dd>
+        
+        <dt>model <span class="property-type">string</span></dt>
+        <dd>Model used for generation</dd>
+        
+        <dt>usage <span class="property-type">object</span></dt>
+        <dd>Token usage statistics</dd>
+        
+        <dt>safetyRatings <span class="property-type">array</span></dt>
+        <dd>Content safety assessment results</dd>
+    </dl>
+    
+    <h4>Output 2 (Error)</h4>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">any</span></dt>
+        <dd>Original message payload</dd>
+        
+        <dt>error <span class="property-type">object</span></dt>
+        <dd>Error details including message and code</dd>
+    </dl>
+    
+    <h3>Examples</h3>
+    
+    <h4>Simple Text Generation</h4>
+    <pre>[{"id":"example1","type":"gemini-generate-content","name":"Simple Generate","apiKey":"your-api-key","model":"gemini-2.0-flash-exp","mode":"single","prompt":"Write a haiku about coding","x":100,"y":100,"wires":[[],[]]}]</pre>
+    
+    <h4>Vision Analysis</h4>
+    <pre>[{"id":"example2","type":"gemini-generate-content","name":"Image Analysis","apiKey":"your-api-key","model":"gemini-2.0-flash-exp","mode":"single","prompt":"Describe this image","multimodalInputs":[{"type":"image-url","value":"https://example.com/image.jpg"}],"x":100,"y":200,"wires":[[],[]]}]</pre>
+    
+    <h4>Chat Conversation</h4>
+    <pre>[{"id":"example3","type":"gemini-generate-content","name":"Chat Bot","apiKey":"your-api-key","model":"gemini-2.0-flash-exp","mode":"chat","prompt":"{{payload}}","x":100,"y":300,"wires":[[],[]]}]</pre>
+    
+    <h3>Tips</h3>
+    <ul>
+        <li>Use <code>msg.topic</code> to maintain separate chat sessions</li>
+        <li>For vision tasks, ensure images are properly formatted (JPEG, PNG, WebP)</li>
+        <li>Streaming mode provides real-time token generation</li>
+        <li>Use grounding for queries requiring current information</li>
+        <li>Adjust temperature based on task: low for factual, high for creative</li>
+    </ul>
+</script>

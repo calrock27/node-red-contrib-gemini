@@ -1,0 +1,802 @@
+<script type="text/javascript">
+    RED.nodes.registerType('gemini-image-generate', {
+        category: 'AI',
+        color: '#FF6F00',
+        defaults: {
+            name: { value: "" },
+            apiKey: { value: "", type: "gemini-api-key", required: true },
+            modelSelection: { value: "gemini-2.5-flash-image", required: true },
+            customModel: { value: "" },
+            customModelType: { value: "str" },
+            prompt: { value: "" },
+            promptType: { value: "str" },
+            numberOfImages: { value: 1 },
+            numberOfImagesType: { value: "num" },
+            aspectRatio: { value: "1:1" },
+            outputFormat: { value: "base64" },
+            saveDirectory: { value: "" },
+            saveDirType: { value: "str" },
+            mode: { value: "generate" },
+            inputFile: { value: "" },
+            inputFileType: { value: "str" },
+            outputProperty: { value: "payload" },
+            systemInstruction: { value: "" },
+            systemInstructionType: { value: "str" },
+            responseModalities: { value: "image" },
+            safetyHarassment: { value: "" },
+            safetyHateSpeech: { value: "" },
+            safetySexuallyExplicit: { value: "" },
+            safetyDangerousContent: { value: "" },
+            passthroughProperties: { value: false }
+        },
+        inputs: 1,
+        outputs: 2,
+        outputLabels: ["success", "error"],
+        icon: "font-awesome/fa-image",
+        label: function() {
+            return this.name || "gemini-image-generate";
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        },
+        oneditprepare: function() {
+            var node = this;
+
+            // TypedInput conditional validation utility
+            function setupConditionalValidation(fieldId, isRequired = true) {
+                const field = $(`#node-input-${fieldId}`);
+                
+                // Set up change handler for TypedInput
+                field.typedInput().on('change', function(event, type, value) {
+                    if (isRequired && type === 'str') {
+                        $(this).attr('required', true);
+                        $(this).addClass('typed-input-required');
+                    } else {
+                        $(this).removeAttr('required');
+                        $(this).removeClass('typed-input-required');
+                    }
+                });
+                
+                // Set initial state
+                const currentType = field.typedInput('type');
+                if (isRequired && currentType === 'str') {
+                    field.attr('required', true).addClass('typed-input-required');
+                } else {
+                    field.removeAttr('required').removeClass('typed-input-required');
+                }
+            }
+
+            // Initialize model selection dropdown
+            $("#node-input-modelSelection").val(node.modelSelection || "gemini-2.5-flash-image");
+            
+            // Initialize custom model TypedInput
+            $("#node-input-customModel").typedInput({
+                default: 'str',
+                types: ['str', 'msg', 'flow', 'global'],
+                value: node.customModel,
+                type: node.customModelType
+            });
+            
+            // Set up conditional validation for custom model
+            setupConditionalValidation('customModel', true);
+            
+            // Show/hide custom model field based on selection
+            function toggleCustomImageModel() {
+                if ($("#node-input-modelSelection").val() === 'custom') {
+                    $("#custom-image-model-row").show();
+                    // Conditional validation will handle the required state based on TypedInput type
+                } else {
+                    $("#custom-image-model-row").hide();
+                }
+            }
+            
+            // Initial state
+            toggleCustomImageModel();
+            
+            // Listen for model selection changes
+            $("#node-input-modelSelection").change(toggleCustomImageModel);
+
+            // Initialize TypedInput for prompt
+            $("#node-input-prompt").typedInput({
+                default: 'str',
+                types: ['str', 'msg', 'flow', 'global'],
+                value: node.prompt,
+                type: node.promptType
+            });
+            
+            // Set up conditional validation for prompt (required field)
+            setupConditionalValidation('prompt', true);
+
+            // Initialize TypedInput for numberOfImages
+            $("#node-input-numberOfImages").typedInput({
+                default: 'num',
+                types: ['num', 'msg', 'flow', 'global'],
+                value: node.numberOfImages,
+                type: node.numberOfImagesType
+            });
+
+            // Initialize TypedInput for saveDirectory
+            $("#node-input-saveDirectory").typedInput({
+                default: 'str',
+                types: ['str', 'msg', 'flow', 'global'],
+                value: node.saveDirectory,
+                type: node.saveDirType
+            });
+
+            // Initialize TypedInput for inputFile
+            $("#node-input-inputFile").typedInput({
+                default: 'str',
+                types: ['str', 'msg', 'flow', 'global'],
+                value: node.inputFile,
+                type: node.inputFileType
+            });
+
+            // Initialize TypedInput for systemInstruction
+            $("#node-input-systemInstruction").typedInput({
+                default: 'str',
+                types: ['str', 'msg', 'flow', 'global'],
+                value: node.systemInstruction,
+                type: node.systemInstructionType
+            });
+
+            // Show/hide save directory based on output format
+            function toggleSaveDirectory() {
+                if ($("#node-input-outputFormat").val() === 'file') {
+                    $("#save-directory-row").show();
+                    $("#save-directory-row").addClass('required');
+                    $("#node-input-saveDirectory").attr('required', true);
+                } else {
+                    $("#save-directory-row").hide();
+                    $("#save-directory-row").removeClass('required');
+                    $("#node-input-saveDirectory").removeAttr('required');
+                }
+            }
+
+            // Initial state
+            toggleSaveDirectory();
+
+            // Listen for output format changes
+            $("#node-input-outputFormat").change(toggleSaveDirectory);
+            
+            // Show/hide mode-specific options
+            function toggleModeOptions() {
+                const mode = $("#node-input-mode").val();
+                if (mode === 'edit') {
+                    $("#editing-info-row").show();
+                    $("#input-file-row").show();
+                } else {
+                    $("#editing-info-row").hide();
+                    $("#input-file-row").hide();
+                }
+            }
+            
+            // Initial state for mode
+            toggleModeOptions();
+            
+            // Listen for mode changes
+            $("#node-input-mode").change(toggleModeOptions);
+            
+            // Initialize response modalities dropdown
+            $("#node-input-responseModalities").val(node.responseModalities || "image");
+
+            // Initialize safety settings dropdowns
+            $("#node-input-safetyHarassment").val(node.safetyHarassment || "BLOCK_MEDIUM_AND_ABOVE");
+            $("#node-input-safetyHateSpeech").val(node.safetyHateSpeech || "BLOCK_MEDIUM_AND_ABOVE");
+            $("#node-input-safetySexuallyExplicit").val(node.safetySexuallyExplicit || "BLOCK_MEDIUM_AND_ABOVE");
+            $("#node-input-safetyDangerousContent").val(node.safetyDangerousContent || "BLOCK_MEDIUM_AND_ABOVE");
+            
+            // Advanced configuration collapsible
+            $("#advanced-config-header").click(function() {
+                $("#advanced-config-content").toggle();
+                var icon = $(this).find("i");
+                if (icon.hasClass("fa-caret-down")) {
+                    icon.removeClass("fa-caret-down").addClass("fa-caret-right");
+                } else {
+                    icon.removeClass("fa-caret-right").addClass("fa-caret-down");
+                }
+            });
+        },
+        oneditsave: function() {
+            var node = this;
+
+            // Save model selection values
+            node.modelSelection = $("#node-input-modelSelection").val();
+            node.customModel = $("#node-input-customModel").typedInput('value');
+            node.customModelType = $("#node-input-customModel").typedInput('type');
+            
+            node.prompt = $("#node-input-prompt").typedInput('value');
+            node.promptType = $("#node-input-prompt").typedInput('type');
+            
+            node.numberOfImages = $("#node-input-numberOfImages").typedInput('value');
+            node.numberOfImagesType = $("#node-input-numberOfImages").typedInput('type');
+            
+            node.saveDirectory = $("#node-input-saveDirectory").typedInput('value');
+            node.saveDirType = $("#node-input-saveDirectory").typedInput('type');
+            
+            node.inputFile = $("#node-input-inputFile").typedInput('value');
+            node.inputFileType = $("#node-input-inputFile").typedInput('type');
+            
+            node.systemInstruction = $("#node-input-systemInstruction").typedInput('value');
+            node.systemInstructionType = $("#node-input-systemInstruction").typedInput('type');
+            
+            node.responseModalities = $("#node-input-responseModalities").val();
+            
+            node.outputProperty = $("#node-input-outputProperty").val();
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="gemini-image-generate">
+    <!-- Basic Configuration Section -->
+    <div class="form-section">
+        <div class="form-section-header">
+            <i class="fa fa-cogs"></i> <strong>Basic Configuration</strong>
+        </div>
+        <div class="form-section-content">
+            <div class="form-row">
+                <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+                <input type="text" id="node-input-name" placeholder="Name">
+            </div>
+            
+            <div class="form-row required">
+                <label for="node-input-apiKey"><i class="fa fa-key"></i> API Key</label>
+                <input type="text" id="node-input-apiKey" required>
+            </div>
+            
+            <div class="form-row required">
+                <label for="node-input-modelSelection"><i class="fa fa-cog"></i> Model</label>
+                <select id="node-input-modelSelection" style="width:300px;" required>
+                    <option value="">-- Select Model --</option>
+                    <option value="gemini-2.5-flash-image">gemini-2.5-flash-image</option>
+                    <option value="custom">Custom</option>
+                </select>
+            </div>
+            
+            <div class="form-row has-typed-input" id="custom-image-model-row" style="display:none;">
+                <label for="node-input-customModel"><i class="fa fa-edit"></i> Custom Model</label>
+                <input type="text" id="node-input-customModel" style="width:100%;" placeholder="e.g., imagen-3.0-generate-001">
+            </div>
+            
+            <div class="form-row">
+                <label style="width:100%;"><i class="fa fa-external-link"></i> Model Reference</label>
+                <div style="margin-left:10px; font-size:12px; color:#666;">
+                    <a href="https://ai.google.dev/gemini-api/docs/image-generation" target="_blank">View image generation documentation and available models</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Content Input Configuration Section -->
+    <div class="form-section">
+        <div class="form-section-header">
+            <i class="fa fa-image"></i> <strong>Content Input Configuration</strong>
+        </div>
+        <div class="form-section-content">
+            <div class="form-row">
+                <label for="node-input-mode"><i class="fa fa-magic"></i> Mode</label>
+                <select id="node-input-mode" style="width:200px;">
+                    <option value="generate">Text-to-Image Generation</option>
+                    <option value="edit">Image Editing</option>
+                </select>
+            </div>
+            
+            <div class="form-row" id="editing-info-row" style="display:none;">
+                <label style="width:100%;"><i class="fa fa-info-circle"></i> Image Editing Instructions</label>
+                <div style="margin-left:10px; font-size:12px; color:#666;">
+                    <strong>For image editing:</strong><br>
+                    • Provide input images via the "Input Image File" field below or <code>msg.inputImages</code> (array)<br>
+                    • Use descriptive prompts like "Add a wizard hat to this cat" or "Change the blue sofa to leather"<br>
+                    • Supports up to 3 input images for best results<br>
+                    • No manual masking required - uses semantic understanding
+                </div>
+            </div>
+            
+            <div class="form-row" id="input-file-row" style="display:none;">
+                <label for="node-input-inputFile"><i class="fa fa-file-image-o"></i> Input Image File</label>
+                <input type="text" id="node-input-inputFile" style="width:100%;" placeholder="e.g., /home/user/images/photo.jpg">
+                <div style="margin-top:5px; font-size:12px; color:#666;">
+                    Local file path to image for editing. Can be used in addition to or instead of msg.inputImages.
+                </div>
+            </div>
+            
+            <div class="form-row has-typed-input">
+                <label for="node-input-prompt"><i class="fa fa-comment"></i> Prompt</label>
+                <input type="text" id="node-input-prompt" style="width:100%;">
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-numberOfImages"><i class="fa fa-clone"></i> Number of Images</label>
+                <input type="text" id="node-input-numberOfImages" style="width:200px;">
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-aspectRatio"><i class="fa fa-expand"></i> Aspect Ratio</label>
+                <select id="node-input-aspectRatio" style="width:200px;">
+                    <option value="1:1">Square (1:1)</option>
+                    <option value="16:9">Landscape (16:9)</option>
+                    <option value="9:16">Portrait (9:16)</option>
+                    <option value="4:3">Standard (4:3)</option>
+                    <option value="3:4">Portrait (3:4)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Output Configuration Section -->
+    <div class="form-section">
+        <div class="form-section-header">
+            <i class="fa fa-sign-out"></i> <strong>Output Configuration</strong>
+        </div>
+        <div class="form-section-content">
+            <div class="form-row">
+                <label for="node-input-outputFormat"><i class="fa fa-file-image-o"></i> Output Format</label>
+                <select id="node-input-outputFormat" style="width:200px;">
+                    <option value="base64">Base64 String</option>
+                    <option value="buffer">Buffer</option>
+                    <option value="url">Data URL</option>
+                    <option value="file">Save to File</option>
+                </select>
+            </div>
+            
+            <div class="form-row" id="save-directory-row" style="display:none;">
+                <label for="node-input-saveDirectory"><i class="fa fa-folder"></i> Save Directory</label>
+                <input type="text" id="node-input-saveDirectory" style="width:100%;" placeholder="e.g., /home/user/images">
+                <div style="margin-top:5px; font-size:12px; color:#666;">
+                    Leave blank to use Node-RED user directory (~/.node-red/). Directory will be created if it doesn't exist.
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-outputProperty"><i class="fa fa-sign-out"></i> Output Property</label>
+                <input type="text" id="node-input-outputProperty" style="width:200px;" placeholder="payload">
+                <div style="margin-top:5px; font-size:12px; color:#666;">
+                    Message property to store the generated image(s). Default is "payload".
+                </div>
+            </div>
+
+            <div class="form-row">
+                <label for="node-input-passthroughProperties" style="width:auto;">
+                    <input type="checkbox" id="node-input-passthroughProperties" style="display:inline-block; width:auto; vertical-align:middle; margin:0 5px 0 0;">
+                    <span style="vertical-align:middle;">Passthrough Additional Properties</span>
+                </label>
+                <div style="margin-top:5px; margin-left:20px; font-size:12px; color:#666;">
+                    Controls what properties are sent to downstream nodes. When <strong>disabled</strong> (default), only the configured output property is sent, creating a clean message. When <strong>enabled</strong>, all incoming message properties pass through to downstream nodes along with the output.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Advanced Configuration Section -->
+    <div class="form-section">
+        <div class="form-section-header-collapsible" id="advanced-config-header">
+            <i class="fa fa-caret-right"></i> <strong>Advanced Configuration</strong>
+        </div>
+        <div class="form-section-content-collapsible" id="advanced-config-content" style="display:none;">
+            <div class="form-row">
+                <label for="node-input-systemInstruction"><i class="fa fa-user-circle"></i> System Instruction</label>
+                <input type="text" id="node-input-systemInstruction" style="width:100%;">
+                <div style="margin-top:5px; font-size:12px; color:#666;">
+                    Set model persona, role, or context (e.g., "You are a creative image generator", "Focus on artistic style and composition")
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-responseModalities"><i class="fa fa-cogs"></i> Response Modalities</label>
+                <select id="node-input-responseModalities" style="width:200px;">
+                    <option value="image">Image Only</option>
+                    <option value="text">Text Only</option>
+                    <option value="both">Image and Text</option>
+                </select>
+                <div style="margin-top:5px; font-size:12px; color:#666;">
+                    Controls what type of content the model generates
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <label style="width:100%; margin-bottom:10px;"><strong>Safety Settings</strong></label>
+                <div style="margin-left:10px; font-size:12px; color:#666; margin-bottom:10px;">
+                    Configure content filtering thresholds. Leave empty to use API defaults.
+                    <a href="https://ai.google.dev/gemini-api/docs/safety-settings" target="_blank">Learn more</a>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <label for="node-input-safetyHarassment" style="width:150px;">Harassment</label>
+                <select id="node-input-safetyHarassment" style="width:250px;">
+                    <option value="">-- Not Set --</option>
+                    <option value="HARM_BLOCK_THRESHOLD_UNSPECIFIED">Unspecified (API Default)</option>
+                    <option value="BLOCK_LOW_AND_ABOVE">Block Low and Above</option>
+                    <option value="BLOCK_MEDIUM_AND_ABOVE">Block Medium and Above</option>
+                    <option value="BLOCK_ONLY_HIGH">Block Only High</option>
+                    <option value="BLOCK_NONE">Block None</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <label for="node-input-safetyHateSpeech" style="width:150px;">Hate Speech</label>
+                <select id="node-input-safetyHateSpeech" style="width:250px;">
+                    <option value="">-- Not Set --</option>
+                    <option value="HARM_BLOCK_THRESHOLD_UNSPECIFIED">Unspecified (API Default)</option>
+                    <option value="BLOCK_LOW_AND_ABOVE">Block Low and Above</option>
+                    <option value="BLOCK_MEDIUM_AND_ABOVE">Block Medium and Above</option>
+                    <option value="BLOCK_ONLY_HIGH">Block Only High</option>
+                    <option value="BLOCK_NONE">Block None</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <label for="node-input-safetySexuallyExplicit" style="width:150px;">Sexually Explicit</label>
+                <select id="node-input-safetySexuallyExplicit" style="width:250px;">
+                    <option value="">-- Not Set --</option>
+                    <option value="HARM_BLOCK_THRESHOLD_UNSPECIFIED">Unspecified (API Default)</option>
+                    <option value="BLOCK_LOW_AND_ABOVE">Block Low and Above</option>
+                    <option value="BLOCK_MEDIUM_AND_ABOVE">Block Medium and Above</option>
+                    <option value="BLOCK_ONLY_HIGH">Block Only High</option>
+                    <option value="BLOCK_NONE">Block None</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <label for="node-input-safetyDangerousContent" style="width:150px;">Dangerous Content</label>
+                <select id="node-input-safetyDangerousContent" style="width:250px;">
+                    <option value="">-- Not Set --</option>
+                    <option value="HARM_BLOCK_THRESHOLD_UNSPECIFIED">Unspecified (API Default)</option>
+                    <option value="BLOCK_LOW_AND_ABOVE">Block Low and Above</option>
+                    <option value="BLOCK_MEDIUM_AND_ABOVE">Block Medium and Above</option>
+                    <option value="BLOCK_ONLY_HIGH">Block Only High</option>
+                    <option value="BLOCK_NONE">Block None</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <div class="form-tips">
+        <p><strong>Tips:</strong></p>
+        <ul>
+            <li>Use detailed, descriptive prompts for best results</li>
+            <li>Different models may have different capabilities and limits</li>
+            <li>Base64 output is most compatible with Node-RED flows</li>
+            <li>Buffer format is useful for file operations</li>
+        </ul>
+    </div>
+    
+    <style>
+        .form-section {
+            margin-bottom: 20px;
+        }
+        .form-section-header {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px 4px 0 0;
+            padding: 8px 12px;
+            font-weight: bold;
+            color: #495057;
+            border-bottom: none;
+        }
+        .form-section-header-collapsible {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-weight: bold;
+            color: #495057;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        .form-section-header-collapsible:hover {
+            background: #e9ecef;
+        }
+        .form-section-content {
+            border: 1px solid #dee2e6;
+            border-radius: 0 0 4px 4px;
+            padding: 15px;
+            background: #ffffff;
+        }
+        .form-section-content-collapsible {
+            padding: 15px;
+            background: #ffffff;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .form-section .form-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        /* Conditional required field styling */
+        .typed-input-required {
+            border-color: #ff6b6b !important;
+            box-shadow: 0 0 3px rgba(255, 107, 107, 0.3) !important;
+        }
+        
+        .typed-input-required::before {
+            content: "* ";
+            color: #ff6b6b;
+            font-weight: bold;
+        }
+        
+        /* Visual indicator for required fields that depend on TypedInput type */
+        .form-row.has-typed-input label::after {
+            content: " (required when set to 'string')";
+            font-size: 11px;
+            color: #666;
+            font-weight: normal;
+        }
+        
+        /* Required Field Styling */
+        .form-row.required label::after {
+            content: " *";
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .form-row.required input,
+        .form-row.required select {
+            border-left: 3px solid #dc3545;
+        }
+        
+        .form-row.required input:valid,
+        .form-row.required select:valid {
+            border-left-color: #28a745;
+        }
+        
+        .form-row.required input[type="text"]:not(:placeholder-shown),
+        .form-row.required select:not([value=""]) {
+            border-left-color: #28a745;
+        }
+    </style>
+</script>
+
+<script type="text/html" data-help-name="gemini-image-generate">
+    <p>Generate and edit images using Google's Gemini image generation capabilities. Supports both text-to-image generation and advanced image editing with natural language instructions.</p>
+    
+    <h3>Configuration</h3>
+    <dl class="message-properties">
+        <dt>API Key <span class="property-type">gemini-api-key</span></dt>
+        <dd>Reference to a Gemini API Key configuration node</dd>
+        
+        <dt>Model <span class="property-type">string</span></dt>
+        <dd>The image generation model to use (e.g., gemini-2.5-flash-image). Can be set from configuration or message properties. See the <a href="https://ai.google.dev/gemini-api/docs/image-generation" target="_blank">official documentation</a> for available models.</dd>
+        
+        <dt>Mode <span class="property-type">string</span></dt>
+        <dd>Operation mode:
+            <ul>
+                <li><strong>Text-to-Image Generation:</strong> Create new images from text descriptions</li>
+                <li><strong>Image Editing:</strong> Modify existing images using natural language instructions</li>
+            </ul>
+        </dd>
+        
+        <dt>Prompt <span class="property-type">string</span></dt>
+        <dd>For generation: Detailed description of the image to create. For editing: Instructions for how to modify the input images (e.g., "Add a wizard hat to this cat", "Change the blue sofa to leather"). Supports TypedInput for dynamic prompts.</dd>
+        
+        <dt>Number of Images <span class="property-type">number</span></dt>
+        <dd>How many images to generate (1-4 or 1-8 depending on model). Can be set dynamically</dd>
+        
+        <dt>Aspect Ratio <span class="property-type">string</span></dt>
+        <dd>Image dimensions:
+            <ul>
+                <li><strong>1:1:</strong> Square images</li>
+                <li><strong>16:9:</strong> Widescreen landscape</li>
+                <li><strong>9:16:</strong> Vertical/portrait</li>
+                <li><strong>4:3:</strong> Standard landscape</li>
+                <li><strong>3:4:</strong> Standard portrait</li>
+            </ul>
+        </dd>
+        
+        <dt>Output Format <span class="property-type">string</span></dt>
+        <dd>How to return generated images:
+            <ul>
+                <li><strong>Base64 String:</strong> Text representation for easy handling</li>
+                <li><strong>Buffer:</strong> Binary data for file operations</li>
+                <li><strong>Data URL:</strong> data:image/png;base64,... format</li>
+                <li><strong>Save to File:</strong> Saves image to disk and returns file path</li>
+            </ul>
+        </dd>
+        
+        <dt>Save Directory <span class="property-type">string</span></dt>
+        <dd>Directory path for saving images (only when Output Format is "Save to File"):
+            <ul>
+                <li>Leave blank to use Node-RED user directory</li>
+                <li>Supports TypedInput for dynamic paths</li>
+                <li>Directory will be created automatically if it doesn't exist</li>
+                <li>Can be overridden via <code>msg.saveDirectory</code></li>
+            </ul>
+        </dd>
+        
+        <dt>Input Image File <span class="property-type">string</span></dt>
+        <dd>Local file path to image for editing (only shown in Image Editing mode):
+            <ul>
+                <li>Path to local image file (e.g., /home/user/images/photo.jpg)</li>
+                <li>Supports TypedInput for dynamic file paths</li>
+                <li>Can be used in addition to or instead of <code>msg.inputImages</code></li>
+                <li>File will be automatically read and processed</li>
+            </ul>
+        </dd>
+        
+        <dt>System Instruction <span class="property-type">string</span></dt>
+        <dd>Set model persona, role, or context to guide image generation behavior:
+            <ul>
+                <li>"You are a creative image generator" - Creative generation role</li>
+                <li>"Focus on artistic style and composition" - Specific style guidance</li>
+                <li>"Generate professional marketing images" - Professional context</li>
+                <li>Supports TypedInput for dynamic instructions</li>
+            </ul>
+        </dd>
+        
+        <dt>Response Modalities <span class="property-type">string</span></dt>
+        <dd>Controls what type of content the model generates:
+            <ul>
+                <li><strong>Image Only:</strong> Generate images only (default)</li>
+                <li><strong>Text Only:</strong> Generate text descriptions only</li>
+                <li><strong>Image and Text:</strong> Generate both images and descriptive text</li>
+            </ul>
+        </dd>
+        
+        <dt>Safety Settings <span class="property-type">object</span></dt>
+        <dd>Configure content filtering thresholds for different safety categories:
+            <ul>
+                <li><strong>Harassment:</strong> Filter harassment content</li>
+                <li><strong>Hate Speech:</strong> Filter hate speech content</li>
+                <li><strong>Sexually Explicit:</strong> Filter sexually explicit content</li>
+                <li><strong>Dangerous Content:</strong> Filter dangerous content</li>
+            </ul>
+            Threshold options:
+            <ul>
+                <li><strong>Block None:</strong> No filtering</li>
+                <li><strong>Block Only High:</strong> Block only high probability harmful content</li>
+                <li><strong>Block Medium and Above:</strong> Block medium and high probability content (default)</li>
+                <li><strong>Block Low and Above:</strong> Block low, medium, and high probability content</li>
+            </ul>
+        </dd>
+        
+        <dt>Output Property <span class="property-type">string</span></dt>
+        <dd>Message property name to store the generated image(s):
+            <ul>
+                <li>Default is "payload" if left blank</li>
+                <li>Can be any valid message property name (e.g., "image", "result", "generatedImage")</li>
+                <li>Allows customization of where images are stored in the output message</li>
+                <li>Useful for preserving existing payload data</li>
+            </ul>
+        </dd>
+    </dl>
+    
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">string</span></dt>
+        <dd>Image generation prompt (if not configured in node)</dd>
+        
+        <dt>model <span class="property-type">string</span></dt>
+        <dd>Override configured model</dd>
+        
+        <dt>prompt <span class="property-type">string</span></dt>
+        <dd>Override configured prompt</dd>
+        
+        <dt>numberOfImages <span class="property-type">number</span></dt>
+        <dd>Override configured number of images</dd>
+        
+        <dt>aspectRatio <span class="property-type">string</span></dt>
+        <dd>Override configured aspect ratio</dd>
+        
+        <dt>saveDirectory <span class="property-type">string</span></dt>
+        <dd>Override configured save directory (when using file output format)</dd>
+        
+        <dt>inputImages <span class="property-type">array</span></dt>
+        <dd>For image editing mode: Array of input images to modify. Each element can be:
+            <ul>
+                <li>URL string (http/https)</li>
+                <li>Data URL string (data:image/...;base64,...)</li>
+                <li>Base64 string</li>
+                <li>Buffer object</li>
+            </ul>
+            Supports up to 3 images for best results.
+        </dd>
+        
+        <dt>systemInstruction <span class="property-type">string</span></dt>
+        <dd>Override configured system instruction</dd>
+        
+        <dt>responseModalities <span class="property-type">string</span></dt>
+        <dd>Override configured response modalities ("image", "text", or "both")</dd>
+    </dl>
+    
+    <h3>Outputs</h3>
+    <h4>Output 1 (Success)</h4>
+    <dl class="message-properties">
+        <dt>[outputProperty] <span class="property-type">string | Buffer | array</span></dt>
+        <dd>Generated image(s) in the specified output format stored in the configured output property (default: payload). For multiple images, returns an array. When using "Save to File", contains file path(s)</dd>
+        
+        <dt>model <span class="property-type">string</span></dt>
+        <dd>Model used for generation</dd>
+        
+        <dt>prompt <span class="property-type">string</span></dt>
+        <dd>The prompt that was used</dd>
+        
+        <dt>imageCount <span class="property-type">number</span></dt>
+        <dd>Number of images generated</dd>
+        
+        <dt>aspectRatio <span class="property-type">string</span></dt>
+        <dd>Aspect ratio used</dd>
+        
+        <dt>outputFormat <span class="property-type">string</span></dt>
+        <dd>Format of the returned images</dd>
+    </dl>
+    
+    <h4>Output 2 (Error)</h4>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">any</span></dt>
+        <dd>Original message payload</dd>
+        
+        <dt>error <span class="property-type">object</span></dt>
+        <dd>Error details including message and code</dd>
+    </dl>
+    
+    <h3>Examples</h3>
+    
+    <h4>Simple Image Generation</h4>
+    <pre>[{"id":"example1","type":"gemini-image-generate","name":"Generate Image","apiKey":"your-api-key","model":"imagen-3.0-generate-001","prompt":"A serene mountain landscape at sunset","numberOfImages":1,"aspectRatio":"16:9","outputFormat":"base64","x":100,"y":100,"wires":[[],[]]}]</pre>
+    
+    <h4>Multiple Images</h4>
+    <pre>[{"id":"example2","type":"gemini-image-generate","name":"Generate Multiple","apiKey":"your-api-key","model":"imagen-3.0-generate-001","prompt":"Abstract art with vibrant colors","numberOfImages":4,"aspectRatio":"1:1","outputFormat":"buffer","x":100,"y":200,"wires":[[],[]]}]</pre>
+    
+    <h4>Dynamic Prompt from Message</h4>
+    <pre>[{"id":"example3","type":"gemini-image-generate","name":"Dynamic Generate","apiKey":"your-api-key","model":"gemini-2.5-flash-image","promptType":"msg","prompt":"payload","numberOfImages":1,"aspectRatio":"9:16","outputFormat":"base64","x":100,"y":300,"wires":[[],[]]}]</pre>
+    
+    <h4>Image Editing - Add Elements</h4>
+    <pre>[{"id":"example4","type":"inject","name":"Edit Image","props":[{"p":"payload","v":"Add a wizard hat to this cat","vt":"str"},{"p":"inputImages","v":"[\"https://example.com/cat.jpg\"]","vt":"json"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","x":100,"y":400,"wires":[["example5"]]},{"id":"example5","type":"gemini-image-generate","name":"Image Editor","apiKey":"your-api-key","model":"gemini-2.5-flash-image","mode":"edit","promptType":"msg","prompt":"payload","outputFormat":"file","x":300,"y":400,"wires":[[],[]]}]</pre>
+    
+    <h4>Image Editing - Style Transfer</h4>
+    <pre>[{"id":"example6","type":"inject","name":"Style Transfer","props":[{"p":"payload","v":"Transform this photo into Van Gogh's Starry Night style","vt":"str"},{"p":"inputImages","v":"[\"data:image/jpeg;base64,/9j/4AAQ...\"]","vt":"json"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","x":100,"y":500,"wires":[["example7"]]},{"id":"example7","type":"gemini-image-generate","name":"Style Transfer","apiKey":"your-api-key","model":"gemini-2.5-flash-image","mode":"edit","promptType":"msg","prompt":"payload","outputFormat":"buffer","x":300,"y":500,"wires":[[],[]]}]</pre>
+    
+    <h4>Image Editing - Local File Input</h4>
+    <pre>[{"id":"example8","type":"inject","name":"Edit Local File","props":[{"p":"payload","v":"Add a rainbow in the sky","vt":"str"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","x":100,"y":600,"wires":[["example9"]]},{"id":"example9","type":"gemini-image-generate","name":"Edit from File","apiKey":"your-api-key","model":"gemini-2.5-flash-image","mode":"edit","promptType":"msg","prompt":"payload","inputFile":"/home/user/landscape.jpg","inputFileType":"str","outputFormat":"file","x":300,"y":600,"wires":[[],[]]}]</pre>
+    
+    <h4>Custom Output Property</h4>
+    <pre>[{"id":"example10","type":"inject","name":"Custom Output","props":[{"p":"payload","v":"A majestic mountain landscape","vt":"str"},{"p":"originalData","v":"This data should be preserved","vt":"str"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","x":100,"y":700,"wires":[["example11"]]},{"id":"example11","type":"gemini-image-generate","name":"Generate to Custom Property","apiKey":"your-api-key","model":"gemini-2.5-flash-image","promptType":"msg","prompt":"payload","outputProperty":"generatedImage","outputFormat":"base64","x":300,"y":700,"wires":[[],[]]}]</pre>
+    
+    <h3>Tips</h3>
+    
+    <h4>Text-to-Image Generation</h4>
+    <ul>
+        <li><strong>Detailed Prompts:</strong> More specific descriptions yield better results</li>
+        <li><strong>Style Keywords:</strong> Include art styles, lighting, mood descriptors</li>
+        <li><strong>Aspect Ratios:</strong> Choose based on intended use (social media, prints, etc.)</li>
+        <li><strong>Batch Generation:</strong> Generate multiple variations in one request</li>
+    </ul>
+    
+    <h4>Image Editing</h4>
+    <ul>
+        <li><strong>Be Specific:</strong> Use detailed editing instructions like "Change the blue sofa to a leather armchair"</li>
+        <li><strong>Semantic Understanding:</strong> No masks needed - describe what to change naturally</li>
+        <li><strong>Multiple Images:</strong> Can edit up to 3 images simultaneously</li>
+        <li><strong>Iterative Editing:</strong> Use multiple nodes for complex multi-step edits</li>
+        <li><strong>Context Matters:</strong> Provide context about what you want to preserve vs. change</li>
+    </ul>
+    
+    <h4>General</h4>
+    <ul>
+        <li><strong>Error Handling:</strong> Connect error output for content policy violations</li>
+        <li><strong>File Saving:</strong> Use "Save to File" for persistent storage</li>
+        <li><strong>Model Selection:</strong> See official docs for current model capabilities</li>
+        <li><strong>Output Property:</strong> Use custom output property to preserve existing message data</li>
+        <li><strong>Safety Settings:</strong> Adjust safety thresholds if content is being unexpectedly blocked</li>
+    </ul>
+    
+    <h3>Prompt Examples</h3>
+    
+    <h4>Text-to-Image Generation</h4>
+    <ul>
+        <li>"A photorealistic portrait of a wise old oak tree in golden hour lighting"</li>
+        <li>"Minimalist logo design for a coffee shop, clean lines, warm colors"</li>
+        <li>"Futuristic cityscape at night with neon lights, cyberpunk style"</li>
+        <li>"Watercolor painting of a calm lake with mountains, soft pastel colors"</li>
+    </ul>
+    
+    <h4>Image Editing</h4>
+    <ul>
+        <li>"Add a wizard hat to this cat photo"</li>
+        <li>"Change the blue sofa to a vintage leather chesterfield"</li>
+        <li>"Transform this photo into Van Gogh's Starry Night style"</li>
+        <li>"Remove the background and make it pure white"</li>
+        <li>"Add autumn leaves falling around this tree"</li>
+        <li>"Change the time of day to sunset with warm lighting"</li>
+    </ul>
+</script>

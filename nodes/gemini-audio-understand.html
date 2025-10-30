@@ -1,0 +1,718 @@
+<script type="text/javascript">
+    RED.nodes.registerType('gemini-audio-understand', {
+        category: 'AI',
+        color: '#E91E63',
+        defaults: {
+            name: { value: "" },
+            apiKey: { value: "", type: "gemini-api-key", required: true },
+            model: { value: "gemini-2.5-flash", required: true },
+            prompt: { value: "" },
+            promptType: { value: "str" },
+            audioFile: { value: "" },
+            audioFileType: { value: "str" },
+            systemInstruction: { value: "" },
+            systemInstructionType: { value: "str" },
+            temperature: { value: "" },
+            temperatureType: { value: "num" },
+            topP: { value: "" },
+            topPType: { value: "num" },
+            topK: { value: "" },
+            topKType: { value: "num" },
+            maxOutputTokens: { value: "" },
+            maxOutputTokensType: { value: "num" },
+            safetyHarassment: { value: "" },
+            safetyHateSpeech: { value: "" },
+            safetySexuallyExplicit: { value: "" },
+            safetyDangerousContent: { value: "" },
+            outputFormat: { value: "text" },
+            saveDirectory: { value: "" },
+            saveDirType: { value: "str" },
+            outputProperty: { value: "payload" },
+            passthroughProperties: { value: false }
+        },
+        inputs: 1,
+        outputs: 2,
+        outputLabels: ["success", "error"],
+        icon: "font-awesome/fa-file-audio-o",
+        label: function() {
+            return this.name || "gemini-audio-understand";
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        },
+        oneditprepare: function() {
+            var node = this;
+
+            // Initialize TypedInput for prompt
+            $("#node-input-prompt").typedInput({
+                default: 'str',
+                types: ['str', 'msg', 'flow', 'global'],
+                value: node.prompt,
+                type: node.promptType
+            });
+
+            // Initialize TypedInput for audioFile
+            $("#node-input-audioFile").typedInput({
+                default: 'str',
+                types: ['str', 'msg', 'flow', 'global'],
+                value: node.audioFile,
+                type: node.audioFileType
+            });
+
+            // Initialize TypedInput for systemInstruction
+            $("#node-input-systemInstruction").typedInput({
+                default: 'str',
+                types: ['str', 'msg', 'flow', 'global'],
+                value: node.systemInstruction,
+                type: node.systemInstructionType
+            });
+
+            // Initialize TypedInput for generation config parameters
+            $("#node-input-temperature").typedInput({
+                default: 'num',
+                types: ['num', 'msg', 'flow', 'global'],
+                value: node.temperature,
+                type: node.temperatureType
+            });
+
+            $("#node-input-topP").typedInput({
+                default: 'num',
+                types: ['num', 'msg', 'flow', 'global'],
+                value: node.topP,
+                type: node.topPType
+            });
+
+            $("#node-input-topK").typedInput({
+                default: 'num',
+                types: ['num', 'msg', 'flow', 'global'],
+                value: node.topK,
+                type: node.topKType
+            });
+
+            $("#node-input-maxOutputTokens").typedInput({
+                default: 'num',
+                types: ['num', 'msg', 'flow', 'global'],
+                value: node.maxOutputTokens,
+                type: node.maxOutputTokensType
+            });
+
+            // Initialize TypedInput for saveDirectory
+            $("#node-input-saveDirectory").typedInput({
+                default: 'str',
+                types: ['str', 'msg', 'flow', 'global'],
+                value: node.saveDirectory,
+                type: node.saveDirType
+            });
+
+            // Initialize output format dropdown
+            $("#node-input-outputFormat").val(node.outputFormat || "text");
+
+            // Initialize safety settings dropdowns
+            $("#node-input-safetyHarassment").val(node.safetyHarassment || "BLOCK_MEDIUM_AND_ABOVE");
+            $("#node-input-safetyHateSpeech").val(node.safetyHateSpeech || "BLOCK_MEDIUM_AND_ABOVE");
+            $("#node-input-safetySexuallyExplicit").val(node.safetySexuallyExplicit || "BLOCK_MEDIUM_AND_ABOVE");
+            $("#node-input-safetyDangerousContent").val(node.safetyDangerousContent || "BLOCK_MEDIUM_AND_ABOVE");
+
+            // Show/hide save directory based on output format
+            function toggleSaveDirectory() {
+                if ($("#node-input-outputFormat").val() === 'file') {
+                    $("#save-directory-row").show();
+                    $("#save-directory-row").addClass('required');
+                    $("#node-input-saveDirectory").attr('required', true);
+                } else {
+                    $("#save-directory-row").hide();
+                    $("#save-directory-row").removeClass('required');
+                    $("#node-input-saveDirectory").removeAttr('required');
+                }
+            }
+
+            // Initial state
+            toggleSaveDirectory();
+
+            // Listen for output format changes
+            $("#node-input-outputFormat").change(toggleSaveDirectory);
+
+            // Advanced configuration collapsible
+            $("#advanced-config-header").click(function() {
+                $("#advanced-config-content").toggle();
+                var icon = $(this).find("i");
+                if (icon.hasClass("fa-caret-down")) {
+                    icon.removeClass("fa-caret-down").addClass("fa-caret-right");
+                } else {
+                    icon.removeClass("fa-caret-right").addClass("fa-caret-down");
+                }
+            });
+        },
+        oneditsave: function() {
+            var node = this;
+
+            // Save TypedInput values and types
+            node.prompt = $("#node-input-prompt").typedInput('value');
+            node.promptType = $("#node-input-prompt").typedInput('type');
+            
+            node.audioFile = $("#node-input-audioFile").typedInput('value');
+            node.audioFileType = $("#node-input-audioFile").typedInput('type');
+            
+            node.systemInstruction = $("#node-input-systemInstruction").typedInput('value');
+            node.systemInstructionType = $("#node-input-systemInstruction").typedInput('type');
+            
+            node.temperature = $("#node-input-temperature").typedInput('value');
+            node.temperatureType = $("#node-input-temperature").typedInput('type');
+            
+            node.topP = $("#node-input-topP").typedInput('value');
+            node.topPType = $("#node-input-topP").typedInput('type');
+            
+            node.topK = $("#node-input-topK").typedInput('value');
+            node.topKType = $("#node-input-topK").typedInput('type');
+            
+            node.maxOutputTokens = $("#node-input-maxOutputTokens").typedInput('value');
+            node.maxOutputTokensType = $("#node-input-maxOutputTokens").typedInput('type');
+            
+            node.outputFormat = $("#node-input-outputFormat").val();
+            node.saveDirectory = $("#node-input-saveDirectory").typedInput('value');
+            node.saveDirType = $("#node-input-saveDirectory").typedInput('type');
+            
+            node.outputProperty = $("#node-input-outputProperty").val();
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="gemini-audio-understand">
+    <!-- Basic Configuration Section -->
+    <div class="form-section">
+        <div class="form-section-header">
+            <i class="fa fa-cogs"></i> <strong>Basic Configuration</strong>
+        </div>
+        <div class="form-section-content">
+            <div class="form-row">
+                <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+                <input type="text" id="node-input-name" placeholder="Name">
+            </div>
+            
+            <div class="form-row required">
+                <label for="node-input-apiKey"><i class="fa fa-key"></i> API Key</label>
+                <input type="text" id="node-input-apiKey" required>
+            </div>
+            
+            <div class="form-row required">
+                <label for="node-input-model"><i class="fa fa-cog"></i> Model</label>
+                <input type="text" id="node-input-model" style="width:100%;" placeholder="e.g., gemini-2.5-flash" required>
+            </div>
+            
+            <div class="form-row">
+                <label style="width:100%;"><i class="fa fa-external-link"></i> Audio Understanding Reference</label>
+                <div style="margin-left:10px; font-size:12px; color:#666;">
+                    <a href="https://ai.google.dev/gemini-api/docs/audio" target="_blank">View audio understanding documentation and supported formats</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Content Input Configuration Section -->
+    <div class="form-section">
+        <div class="form-section-header">
+            <i class="fa fa-file-audio-o"></i> <strong>Content Input Configuration</strong>
+        </div>
+        <div class="form-section-content">
+            <div class="form-row">
+                <label for="node-input-prompt"><i class="fa fa-comment"></i> Prompt</label>
+                <input type="text" id="node-input-prompt" style="width:100%;" placeholder="e.g., Transcribe this audio, What instruments do you hear?">
+                <div style="margin-top:5px; font-size:12px; color:#666;">
+                    Leave empty for default analysis prompt. Supports specific instructions like "transcribe", "identify speakers", etc.
+                </div>
+            </div>
+            
+            <div class="form-row audio-input-required">
+                <label for="node-input-audioFile"><i class="fa fa-file-audio-o"></i> Audio File Path</label>
+                <input type="text" id="node-input-audioFile" style="width:100%;" placeholder="e.g., /home/user/audio/recording.wav">
+                <div style="margin-top:5px; font-size:12px; color:#666;">
+                    Local file path to audio file. Can be used in addition to or instead of msg.audioData. <strong>At least one audio input method is required.</strong>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <label style="width:100%; margin-bottom:10px;"><strong>Audio Input Methods</strong></label>
+                <div style="margin-left:10px; font-size:12px; color:#666;">
+                    <strong>Method 1 - File Path:</strong> Use the "Audio File Path" field above<br>
+                    <strong>Method 2 - Message Property:</strong> Send audio via <code>msg.audioData</code> (Buffer or base64)<br>
+                    <strong>Method 3 - Multiple Files:</strong> Send array via <code>msg.audioFiles</code><br><br>
+                    <strong>Supported Formats:</strong> WAV, MP3, AIFF, AAC, OGG, FLAC<br>
+                    <strong>Maximum Length:</strong> 9.5 hours per file<br>
+                    <strong>Maximum Size:</strong> 20 MB per request
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Output Configuration Section -->
+    <div class="form-section">
+        <div class="form-section-header">
+            <i class="fa fa-sign-out"></i> <strong>Output Configuration</strong>
+        </div>
+        <div class="form-section-content">
+            <div class="form-row">
+                <label for="node-input-outputFormat"><i class="fa fa-file-text-o"></i> Output Format</label>
+                <select id="node-input-outputFormat" style="width:200px;">
+                    <option value="text">Text Only</option>
+                    <option value="file">Save to File</option>
+                </select>
+                <div style="margin-top:5px; font-size:12px; color:#666;">
+                    Format of the analysis output
+                </div>
+            </div>
+            
+            <div class="form-row" id="save-directory-row" style="display:none;">
+                <label for="node-input-saveDirectory"><i class="fa fa-folder-open"></i> Save Directory</label>
+                <input type="text" id="node-input-saveDirectory" style="width:100%;" placeholder="Leave blank for Node-RED user directory">
+                <div style="margin-top:5px; font-size:12px; color:#666;">
+                    Directory path for saving analysis files. Will be created if it doesn't exist.
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-outputProperty"><i class="fa fa-sign-out"></i> Output Property</label>
+                <input type="text" id="node-input-outputProperty" style="width:200px;" placeholder="payload">
+                <div style="margin-top:5px; font-size:12px; color:#666;">
+                    Message property to store the analysis result. Default is "payload".
+                </div>
+            </div>
+
+            <div class="form-row">
+                <label for="node-input-passthroughProperties" style="width:auto;">
+                    <input type="checkbox" id="node-input-passthroughProperties" style="display:inline-block; width:auto; vertical-align:middle; margin:0 5px 0 0;">
+                    <span style="vertical-align:middle;">Passthrough Additional Properties</span>
+                </label>
+                <div style="margin-top:5px; margin-left:20px; font-size:12px; color:#666;">
+                    Controls what properties are sent to downstream nodes. When <strong>disabled</strong> (default), only the configured output property is sent, creating a clean message. When <strong>enabled</strong>, all incoming message properties pass through to downstream nodes along with the output.
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Advanced Configuration Section -->
+    <div class="form-section">
+        <div class="form-section-header-collapsible" id="advanced-config-header">
+            <i class="fa fa-caret-right"></i> <strong>Advanced Configuration</strong>
+        </div>
+        <div class="form-section-content-collapsible" id="advanced-config-content" style="display:none;">
+            <div class="form-row">
+                <label for="node-input-systemInstruction"><i class="fa fa-user-circle"></i> System Instruction</label>
+                <input type="text" id="node-input-systemInstruction" style="width:100%;">
+                <div style="margin-top:5px; font-size:12px; color:#666;">
+                    Set model persona, role, or context (e.g., "You are an expert audio analyst", "Focus on speech clarity and background noise")
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <label style="width:100%; margin-bottom:10px;"><strong>Generation Parameters</strong></label>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-temperature"><i class="fa fa-thermometer-half"></i> Temperature</label>
+                <input type="text" id="node-input-temperature" style="width:200px;">
+                <span style="margin-left:10px; color:#666;">Creativity (0.0-2.0)</span>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-topP"><i class="fa fa-filter"></i> Top P</label>
+                <input type="text" id="node-input-topP" style="width:200px;">
+                <span style="margin-left:10px; color:#666;">Nucleus sampling (0.0-1.0)</span>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-topK"><i class="fa fa-sort-numeric-asc"></i> Top K</label>
+                <input type="text" id="node-input-topK" style="width:200px;">
+                <span style="margin-left:10px; color:#666;">Token candidates (1-40)</span>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-maxOutputTokens"><i class="fa fa-text-width"></i> Max Output Tokens</label>
+                <input type="text" id="node-input-maxOutputTokens" style="width:200px;">
+                <span style="margin-left:10px; color:#666;">Maximum response length</span>
+            </div>
+            
+            <div class="form-row">
+                <label style="width:100%; margin-bottom:10px;"><strong>Safety Settings</strong></label>
+                <div style="margin-left:10px; font-size:12px; color:#666; margin-bottom:10px;">
+                    Configure content filtering thresholds. Leave empty to use API defaults.
+                    <a href="https://ai.google.dev/gemini-api/docs/safety-settings" target="_blank">Learn more</a>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <label for="node-input-safetyHarassment" style="width:150px;">Harassment</label>
+                <select id="node-input-safetyHarassment" style="width:250px;">
+                    <option value="">-- Not Set --</option>
+                    <option value="HARM_BLOCK_THRESHOLD_UNSPECIFIED">Unspecified (API Default)</option>
+                    <option value="BLOCK_LOW_AND_ABOVE">Block Low and Above</option>
+                    <option value="BLOCK_MEDIUM_AND_ABOVE">Block Medium and Above</option>
+                    <option value="BLOCK_ONLY_HIGH">Block Only High</option>
+                    <option value="BLOCK_NONE">Block None</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <label for="node-input-safetyHateSpeech" style="width:150px;">Hate Speech</label>
+                <select id="node-input-safetyHateSpeech" style="width:250px;">
+                    <option value="">-- Not Set --</option>
+                    <option value="HARM_BLOCK_THRESHOLD_UNSPECIFIED">Unspecified (API Default)</option>
+                    <option value="BLOCK_LOW_AND_ABOVE">Block Low and Above</option>
+                    <option value="BLOCK_MEDIUM_AND_ABOVE">Block Medium and Above</option>
+                    <option value="BLOCK_ONLY_HIGH">Block Only High</option>
+                    <option value="BLOCK_NONE">Block None</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <label for="node-input-safetySexuallyExplicit" style="width:150px;">Sexually Explicit</label>
+                <select id="node-input-safetySexuallyExplicit" style="width:250px;">
+                    <option value="">-- Not Set --</option>
+                    <option value="HARM_BLOCK_THRESHOLD_UNSPECIFIED">Unspecified (API Default)</option>
+                    <option value="BLOCK_LOW_AND_ABOVE">Block Low and Above</option>
+                    <option value="BLOCK_MEDIUM_AND_ABOVE">Block Medium and Above</option>
+                    <option value="BLOCK_ONLY_HIGH">Block Only High</option>
+                    <option value="BLOCK_NONE">Block None</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <label for="node-input-safetyDangerousContent" style="width:150px;">Dangerous Content</label>
+                <select id="node-input-safetyDangerousContent" style="width:250px;">
+                    <option value="">-- Not Set --</option>
+                    <option value="HARM_BLOCK_THRESHOLD_UNSPECIFIED">Unspecified (API Default)</option>
+                    <option value="BLOCK_LOW_AND_ABOVE">Block Low and Above</option>
+                    <option value="BLOCK_MEDIUM_AND_ABOVE">Block Medium and Above</option>
+                    <option value="BLOCK_ONLY_HIGH">Block Only High</option>
+                    <option value="BLOCK_NONE">Block None</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <div class="form-tips">
+        <p><strong>Tips:</strong></p>
+        <ul>
+            <li>Use specific prompts for better results (e.g., "Transcribe", "Identify speakers", "What music is playing?")</li>
+            <li>Supports multiple audio files in one analysis</li>
+            <li>Audio is automatically downsampled to 16 Kbps</li>
+            <li>Can reference specific timestamps in prompts (e.g., "What happens at 02:30?")</li>
+            <li>Works with both speech and non-speech audio content</li>
+        </ul>
+    </div>
+    
+    <style>
+        .form-section {
+            margin-bottom: 20px;
+        }
+        .form-section-header {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px 4px 0 0;
+            padding: 8px 12px;
+            font-weight: bold;
+            color: #495057;
+            border-bottom: none;
+        }
+        .form-section-header-collapsible {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-weight: bold;
+            color: #495057;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        .form-section-header-collapsible:hover {
+            background: #e9ecef;
+        }
+        .form-section-content {
+            border: 1px solid #dee2e6;
+            border-radius: 0 0 4px 4px;
+            padding: 15px;
+            background: #ffffff;
+        }
+        .form-section-content-collapsible {
+            padding: 15px;
+            background: #ffffff;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .form-section .form-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        /* Required Field Styling */
+        .form-row.required label::after {
+            content: " *";
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .form-row.required input,
+        .form-row.required select {
+            border-left: 3px solid #dc3545;
+        }
+        
+        .form-row.required input:valid,
+        .form-row.required select:valid {
+            border-left-color: #28a745;
+        }
+        
+        .form-row.required input[type="text"]:not(:placeholder-shown),
+        .form-row.required select:not([value=""]) {
+            border-left-color: #28a745;
+        }
+    </style>
+</script>
+
+<script type="text/html" data-help-name="gemini-audio-understand">
+    <p>Analyze and understand audio content using Google's Gemini AI audio understanding capabilities. Supports transcription, content analysis, speaker identification, and more.</p>
+    
+    <h3>Configuration</h3>
+    <dl class="message-properties">
+        <dt>API Key <span class="property-type">gemini-api-key</span></dt>
+        <dd>Reference to a Gemini API Key configuration node</dd>
+        
+        <dt>Model <span class="property-type">string</span></dt>
+        <dd>The audio understanding model to use (recommended: gemini-2.5-flash). Can be overridden via <code>msg.model</code></dd>
+        
+        <dt>Prompt <span class="property-type">string</span></dt>
+        <dd>Instructions for audio analysis. Supports TypedInput for dynamic prompts. Examples:
+            <ul>
+                <li>"Transcribe this audio"</li>
+                <li>"Identify all speakers and what they say"</li>
+                <li>"What instruments do you hear?"</li>
+                <li>"Describe what happens from 02:30 to 03:29"</li>
+            </ul>
+        </dd>
+        
+        <dt>Audio File Path <span class="property-type">string</span></dt>
+        <dd>Local file path to audio file for analysis. Supports TypedInput for dynamic file paths. Can be used in combination with message-based audio inputs</dd>
+        
+        <dt>Output Format <span class="property-type">string</span></dt>
+        <dd>Format of the analysis output:
+            <ul>
+                <li><strong>Text Only:</strong> Return analysis as text in message property (default)</li>
+                <li><strong>Save to File:</strong> Save analysis to disk and return file path</li>
+            </ul>
+        </dd>
+        
+        <dt>Save Directory <span class="property-type">string</span></dt>
+        <dd>Directory path for saving analysis files (only when Output Format is "Save to File"):
+            <ul>
+                <li>Leave blank to use Node-RED user directory</li>
+                <li>Supports TypedInput for dynamic paths</li>
+                <li>Directory will be created automatically if it doesn't exist</li>
+                <li>Can be overridden via <code>msg.saveDirectory</code></li>
+            </ul>
+        </dd>
+        
+        <dt>Output Property <span class="property-type">string</span></dt>
+        <dd>Message property name to store the analysis result:
+            <ul>
+                <li>Default is "payload" if left blank</li>
+                <li>Can be any valid message property name</li>
+                <li>When using "Save to File", contains the file path</li>
+                <li>Useful for preserving existing payload data</li>
+            </ul>
+        </dd>
+    </dl>
+    
+    <h3>Advanced Configuration</h3>
+    <dl class="message-properties">
+        <dt>System Instruction <span class="property-type">string</span></dt>
+        <dd>Set model persona, role, or context to guide audio analysis behavior:
+            <ul>
+                <li>"You are an expert audio analyst" - Professional analysis role</li>
+                <li>"Focus on speech clarity and background noise" - Specific analysis focus</li>
+                <li>"Provide detailed transcription with speaker identification" - Transcription role</li>
+                <li>Supports TypedInput for dynamic instructions</li>
+            </ul>
+        </dd>
+        
+        <dt>Temperature <span class="property-type">number</span></dt>
+        <dd>Controls creativity/randomness (0.0-2.0). Higher values = more creative responses</dd>
+        
+        <dt>Top P <span class="property-type">number</span></dt>
+        <dd>Nucleus sampling parameter (0.0-1.0). Controls diversity of word choices</dd>
+        
+        <dt>Top K <span class="property-type">number</span></dt>
+        <dd>Limits token candidates (1-40). Lower values = more focused responses</dd>
+        
+        <dt>Max Output Tokens <span class="property-type">number</span></dt>
+        <dd>Maximum length of generated response</dd>
+        
+        <dt>Safety Settings <span class="property-type">object</span></dt>
+        <dd>Content filtering thresholds for Harassment, Hate Speech, Sexually Explicit, and Dangerous Content</dd>
+    </dl>
+    
+    <h3>Supported Audio Formats</h3>
+    <ul>
+        <li><strong>WAV</strong> (audio/wav)</li>
+        <li><strong>MP3</strong> (audio/mp3)</li>
+        <li><strong>AIFF</strong> (audio/aiff)</li>
+        <li><strong>AAC</strong> (audio/aac)</li>
+        <li><strong>OGG Vorbis</strong> (audio/ogg)</li>
+        <li><strong>FLAC</strong> (audio/flac)</li>
+    </ul>
+    
+    <h3>Audio Input Methods</h3>
+    
+    <h4>Method 1: File Path Configuration</h4>
+    <p>Configure the audio file path in the node settings. Supports TypedInput for dynamic paths.</p>
+    
+    <h4>Method 2: Inline Audio Data</h4>
+    <dl class="message-properties">
+        <dt>audioData <span class="property-type">Buffer | string</span></dt>
+        <dd>Audio data as Buffer, base64 string, or data URL</dd>
+        
+        <dt>audioMimeType <span class="property-type">string</span></dt>
+        <dd>MIME type of the audio (required when audioData is Buffer or base64)</dd>
+    </dl>
+    
+    <h4>Method 3: Multiple Audio Files</h4>
+    <dl class="message-properties">
+        <dt>audioFiles <span class="property-type">array</span></dt>
+        <dd>Array of audio inputs. Each element can be:
+            <ul>
+                <li>File path string</li>
+                <li>Object with <code>data</code> and <code>mimeType</code> properties</li>
+            </ul>
+        </dd>
+    </dl>
+    
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">string</span></dt>
+        <dd>Analysis prompt (if not configured in node)</dd>
+        
+        <dt>model <span class="property-type">string</span></dt>
+        <dd>Override configured model</dd>
+        
+        <dt>audioData <span class="property-type">Buffer | string</span></dt>
+        <dd>Inline audio data (Buffer, base64, or data URL)</dd>
+        
+        <dt>audioMimeType <span class="property-type">string</span></dt>
+        <dd>MIME type for audioData (e.g., "audio/wav")</dd>
+        
+        <dt>audioFiles <span class="property-type">array</span></dt>
+        <dd>Array of audio files to analyze</dd>
+        
+        <dt>systemInstruction <span class="property-type">string</span></dt>
+        <dd>Override configured system instruction</dd>
+        
+        <dt>temperature <span class="property-type">number</span></dt>
+        <dd>Override configured temperature</dd>
+        
+        <dt>topP <span class="property-type">number</span></dt>
+        <dd>Override configured top P</dd>
+        
+        <dt>topK <span class="property-type">number</span></dt>
+        <dd>Override configured top K</dd>
+        
+        <dt>maxOutputTokens <span class="property-type">number</span></dt>
+        <dd>Override configured max output tokens</dd>
+        
+        <dt>saveDirectory <span class="property-type">string</span></dt>
+        <dd>Override configured save directory (when using file output format)</dd>
+    </dl>
+    
+    <h3>Outputs</h3>
+    <h4>Output 1 (Success)</h4>
+    <dl class="message-properties">
+        <dt>[outputProperty] <span class="property-type">string</span></dt>
+        <dd>Audio analysis result stored in the configured output property (default: payload). When using "Save to File", contains the file path</dd>
+        
+        <dt>model <span class="property-type">string</span></dt>
+        <dd>Model used for analysis</dd>
+        
+        <dt>prompt <span class="property-type">string</span></dt>
+        <dd>The prompt used for analysis</dd>
+        
+        <dt>audioCount <span class="property-type">number</span></dt>
+        <dd>Number of audio files processed</dd>
+        
+        <dt>usage <span class="property-type">object</span></dt>
+        <dd>Token usage statistics (32 tokens per second of audio)</dd>
+        
+        <dt>safetyRatings <span class="property-type">array</span></dt>
+        <dd>Content safety assessment results</dd>
+    </dl>
+    
+    <h4>Output 2 (Error)</h4>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">any</span></dt>
+        <dd>Original message payload</dd>
+        
+        <dt>error <span class="property-type">object</span></dt>
+        <dd>Error details including message and code</dd>
+    </dl>
+    
+    <h3>Examples</h3>
+    
+    <h4>Simple Audio Transcription</h4>
+    <pre>[{"id":"example1","type":"gemini-audio-understand","name":"Transcribe Audio","apiKey":"your-api-key","model":"gemini-2.5-flash","prompt":"Transcribe this audio recording","audioFile":"/home/user/meeting.wav","outputProperty":"transcript","x":100,"y":100,"wires":[[],[]]}]</pre>
+    
+    <h4>Inline Audio Analysis</h4>
+    <pre>[{"id":"example2","type":"inject","name":"Audio Buffer","props":[{"p":"audioData","v":"[audio buffer data]","vt":"buffer"},{"p":"audioMimeType","v":"audio/wav","vt":"str"},{"p":"payload","v":"What instruments can you hear in this music?","vt":"str"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","x":100,"y":200,"wires":[["example3"]]},{"id":"example3","type":"gemini-audio-understand","name":"Music Analysis","apiKey":"your-api-key","model":"gemini-2.5-flash","promptType":"msg","prompt":"payload","x":300,"y":200,"wires":[[],[]]}]</pre>
+    
+    <h4>Multiple Audio Files</h4>
+    <pre>[{"id":"example4","type":"inject","name":"Multiple Files","props":[{"p":"audioFiles","v":"[\"/path/audio1.mp3\",\"/path/audio2.wav\"]","vt":"json"},{"p":"payload","v":"Compare these two audio recordings","vt":"str"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","x":100,"y":300,"wires":[["example5"]]},{"id":"example5","type":"gemini-audio-understand","name":"Compare Audio","apiKey":"your-api-key","model":"gemini-2.5-flash","promptType":"msg","prompt":"payload","x":300,"y":300,"wires":[[],[]]}]</pre>
+    
+    <h4>Speaker Identification</h4>
+    <pre>[{"id":"example6","type":"gemini-audio-understand","name":"Identify Speakers","apiKey":"your-api-key","model":"gemini-2.5-flash","prompt":"Identify how many different speakers are in this audio and what each person says","audioFile":"/home/user/conversation.mp3","outputProperty":"speakers","x":100,"y":400,"wires":[[],[]]}]</pre>
+    
+    <h4>Timestamp-Specific Analysis</h4>
+    <pre>[{"id":"example7","type":"gemini-audio-understand","name":"Timestamp Analysis","apiKey":"your-api-key","model":"gemini-2.5-flash","prompt":"What happens between 02:30 and 03:29 in this audio?","audioFile":"/home/user/podcast.mp3","x":100,"y":500,"wires":[[],[]]}]</pre>
+    
+    <h4>Save Analysis to File</h4>
+    <pre>[{"id":"example8","type":"gemini-audio-understand","name":"Save Analysis","apiKey":"your-api-key","model":"gemini-2.5-flash","prompt":"Transcribe this meeting and identify all speakers","audioFile":"/home/user/meeting.wav","outputFormat":"file","saveDirectory":"/home/user/transcripts","outputProperty":"filePath","x":100,"y":600,"wires":[[],[]]}]</pre>
+    
+    <h3>Common Use Cases</h3>
+    
+    <h4>Transcription</h4>
+    <ul>
+        <li><strong>Meeting Notes:</strong> "Transcribe this meeting and identify action items"</li>
+        <li><strong>Interview:</strong> "Transcribe this interview and separate by speaker"</li>
+        <li><strong>Lecture:</strong> "Transcribe this lecture and create a summary"</li>
+    </ul>
+    
+    <h4>Content Analysis</h4>
+    <ul>
+        <li><strong>Music:</strong> "What instruments, genre, and mood do you hear?"</li>
+        <li><strong>Podcast:</strong> "Summarize the main topics discussed"</li>
+        <li><strong>Audio Book:</strong> "What chapter or section is this from?"</li>
+    </ul>
+    
+    <h4>Quality Assessment</h4>
+    <ul>
+        <li><strong>Audio Quality:</strong> "Rate the audio quality and identify any issues"</li>
+        <li><strong>Background Noise:</strong> "What background sounds do you hear?"</li>
+        <li><strong>Volume Analysis:</strong> "Are there any volume inconsistencies?"</li>
+    </ul>
+    
+    <h3>Technical Specifications</h3>
+    <ul>
+        <li><strong>Token Rate:</strong> 32 tokens per second of audio</li>
+        <li><strong>Maximum Length:</strong> 9.5 hours per audio file</li>
+        <li><strong>Maximum Request Size:</strong> 20 MB total (including text and files)</li>
+        <li><strong>Audio Processing:</strong> Automatically downsampled to 16 Kbps</li>
+        <li><strong>Multi-channel:</strong> Combined to single channel automatically</li>
+        <li><strong>Language Support:</strong> Automatic language detection</li>
+    </ul>
+    
+    <h3>Tips</h3>
+    <ul>
+        <li><strong>Specific Prompts:</strong> Use detailed, specific prompts for better results</li>
+        <li><strong>File Formats:</strong> WAV and FLAC provide best quality for analysis</li>
+        <li><strong>Multiple Files:</strong> Process related audio files together for comparison</li>
+        <li><strong>Timestamps:</strong> Reference specific time ranges for focused analysis</li>
+        <li><strong>Context:</strong> Provide context about the audio content type in prompts</li>
+        <li><strong>File Output:</strong> Use "Save to File" for persistent analysis storage</li>
+        <li><strong>Error Handling:</strong> Connect error output for file access or format issues</li>
+    </ul>
+    
+    <p><strong>Reference:</strong> <a href="https://ai.google.dev/gemini-api/docs/audio" target="_blank">Gemini API Audio Understanding Documentation</a></p>
+</script>
