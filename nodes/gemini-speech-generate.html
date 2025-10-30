@@ -526,20 +526,6 @@
         <dd>Error details including message and code</dd>
     </dl>
     
-    <h3>Examples</h3>
-    
-    <h4>Simple Single-Speaker Speech</h4>
-    <pre>[{"id":"example1","type":"gemini-speech-generate","name":"Simple Speech","apiKey":"your-api-key","model":"gemini-2.5-flash","text":"Hello, welcome to our speech generation demo!","voiceName":"Zephyr","speakerMode":"single","outputFormat":"base64","x":100,"y":100,"wires":[[],[]]}]</pre>
-    
-    <h4>Multi-Speaker Conversation</h4>
-    <pre>[{"id":"example2","type":"inject","name":"Multi-Speaker","props":[{"p":"payload","v":"Alice: Good morning! How are you today? Bob: I'm doing great, thanks for asking!","vt":"str"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","x":100,"y":200,"wires":[["example3"]]},{"id":"example3","type":"gemini-speech-generate","name":"Conversation","apiKey":"your-api-key","model":"gemini-2.5-flash","textType":"msg","text":"payload","speakerMode":"multi","speaker1Name":"Alice","speaker1Voice":"Zephyr","speaker2Name":"Bob","speaker2Voice":"Puck","outputFormat":"buffer","x":300,"y":200,"wires":[[],[]]}]</pre>
-    
-    <h4>Save Audio to File</h4>
-    <pre>[{"id":"example4","type":"gemini-speech-generate","name":"Save Audio","apiKey":"your-api-key","model":"gemini-2.5-pro","text":"This audio will be saved to a file for later use.","voiceName":"Charon","speakerMode":"single","outputFormat":"file","saveDirectory":"/home/user/audio","outputProperty":"audioFile","x":100,"y":300,"wires":[[],[]]}]</pre>
-    
-    <h4>Dynamic Voice Selection</h4>
-    <pre>[{"id":"example5","type":"inject","name":"Dynamic Voice","props":[{"p":"payload","v":"This text will use a dynamically selected voice.","vt":"str"},{"p":"voiceName","v":"Fenrir","vt":"str"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","x":100,"y":400,"wires":[["example6"]]},{"id":"example6","type":"gemini-speech-generate","name":"Dynamic Speech","apiKey":"your-api-key","model":"gemini-2.5-flash","textType":"msg","text":"payload","speakerMode":"single","outputFormat":"url","x":300,"y":400,"wires":[[],[]]}]</pre>
-    
     <h3>Voice Options</h3>
     <p>Popular voice names include:</p>
     <ul>

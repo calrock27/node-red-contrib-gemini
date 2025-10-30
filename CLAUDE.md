@@ -9,3 +9,5 @@ Gemini API Docs: https://ai.google.dev/gemini-api/docs
 The entire project must be built using the latest version of the official Node.js SDK: @google/genai. https://github.com/googleapis/js-genai
 
 If node-red is already running, restart the service every time you make a change to the code. 
+
+Be sure to follow the general structure of any existing code when making any code changes or additions. 

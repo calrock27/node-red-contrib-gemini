@@ -650,26 +650,6 @@
         <dd>Error details including message and code</dd>
     </dl>
     
-    <h3>Examples</h3>
-    
-    <h4>Simple Audio Transcription</h4>
-    <pre>[{"id":"example1","type":"gemini-audio-understand","name":"Transcribe Audio","apiKey":"your-api-key","model":"gemini-2.5-flash","prompt":"Transcribe this audio recording","audioFile":"/home/user/meeting.wav","outputProperty":"transcript","x":100,"y":100,"wires":[[],[]]}]</pre>
-    
-    <h4>Inline Audio Analysis</h4>
-    <pre>[{"id":"example2","type":"inject","name":"Audio Buffer","props":[{"p":"audioData","v":"[audio buffer data]","vt":"buffer"},{"p":"audioMimeType","v":"audio/wav","vt":"str"},{"p":"payload","v":"What instruments can you hear in this music?","vt":"str"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","x":100,"y":200,"wires":[["example3"]]},{"id":"example3","type":"gemini-audio-understand","name":"Music Analysis","apiKey":"your-api-key","model":"gemini-2.5-flash","promptType":"msg","prompt":"payload","x":300,"y":200,"wires":[[],[]]}]</pre>
-    
-    <h4>Multiple Audio Files</h4>
-    <pre>[{"id":"example4","type":"inject","name":"Multiple Files","props":[{"p":"audioFiles","v":"[\"/path/audio1.mp3\",\"/path/audio2.wav\"]","vt":"json"},{"p":"payload","v":"Compare these two audio recordings","vt":"str"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","x":100,"y":300,"wires":[["example5"]]},{"id":"example5","type":"gemini-audio-understand","name":"Compare Audio","apiKey":"your-api-key","model":"gemini-2.5-flash","promptType":"msg","prompt":"payload","x":300,"y":300,"wires":[[],[]]}]</pre>
-    
-    <h4>Speaker Identification</h4>
-    <pre>[{"id":"example6","type":"gemini-audio-understand","name":"Identify Speakers","apiKey":"your-api-key","model":"gemini-2.5-flash","prompt":"Identify how many different speakers are in this audio and what each person says","audioFile":"/home/user/conversation.mp3","outputProperty":"speakers","x":100,"y":400,"wires":[[],[]]}]</pre>
-    
-    <h4>Timestamp-Specific Analysis</h4>
-    <pre>[{"id":"example7","type":"gemini-audio-understand","name":"Timestamp Analysis","apiKey":"your-api-key","model":"gemini-2.5-flash","prompt":"What happens between 02:30 and 03:29 in this audio?","audioFile":"/home/user/podcast.mp3","x":100,"y":500,"wires":[[],[]]}]</pre>
-    
-    <h4>Save Analysis to File</h4>
-    <pre>[{"id":"example8","type":"gemini-audio-understand","name":"Save Analysis","apiKey":"your-api-key","model":"gemini-2.5-flash","prompt":"Transcribe this meeting and identify all speakers","audioFile":"/home/user/meeting.wav","outputFormat":"file","saveDirectory":"/home/user/transcripts","outputProperty":"filePath","x":100,"y":600,"wires":[[],[]]}]</pre>
-    
     <h3>Common Use Cases</h3>
     
     <h4>Transcription</h4>

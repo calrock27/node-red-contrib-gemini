@@ -898,17 +898,6 @@
         <dd>Error details including message and code</dd>
     </dl>
     
-    <h3>Examples</h3>
-    
-    <h4>Simple Text Generation</h4>
-    <pre>[{"id":"example1","type":"gemini-generate-content","name":"Simple Generate","apiKey":"your-api-key","model":"gemini-2.0-flash-exp","mode":"single","prompt":"Write a haiku about coding","x":100,"y":100,"wires":[[],[]]}]</pre>
-    
-    <h4>Vision Analysis</h4>
-    <pre>[{"id":"example2","type":"gemini-generate-content","name":"Image Analysis","apiKey":"your-api-key","model":"gemini-2.0-flash-exp","mode":"single","prompt":"Describe this image","multimodalInputs":[{"type":"image-url","value":"https://example.com/image.jpg"}],"x":100,"y":200,"wires":[[],[]]}]</pre>
-    
-    <h4>Chat Conversation</h4>
-    <pre>[{"id":"example3","type":"gemini-generate-content","name":"Chat Bot","apiKey":"your-api-key","model":"gemini-2.0-flash-exp","mode":"chat","prompt":"{{payload}}","x":100,"y":300,"wires":[[],[]]}]</pre>
-    
     <h3>Tips</h3>
     <ul>
         <li>Use <code>msg.topic</code> to maintain separate chat sessions</li>

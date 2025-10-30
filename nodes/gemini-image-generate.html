@@ -729,29 +729,6 @@
         <dd>Error details including message and code</dd>
     </dl>
     
-    <h3>Examples</h3>
-    
-    <h4>Simple Image Generation</h4>
-    <pre>[{"id":"example1","type":"gemini-image-generate","name":"Generate Image","apiKey":"your-api-key","model":"imagen-3.0-generate-001","prompt":"A serene mountain landscape at sunset","numberOfImages":1,"aspectRatio":"16:9","outputFormat":"base64","x":100,"y":100,"wires":[[],[]]}]</pre>
-    
-    <h4>Multiple Images</h4>
-    <pre>[{"id":"example2","type":"gemini-image-generate","name":"Generate Multiple","apiKey":"your-api-key","model":"imagen-3.0-generate-001","prompt":"Abstract art with vibrant colors","numberOfImages":4,"aspectRatio":"1:1","outputFormat":"buffer","x":100,"y":200,"wires":[[],[]]}]</pre>
-    
-    <h4>Dynamic Prompt from Message</h4>
-    <pre>[{"id":"example3","type":"gemini-image-generate","name":"Dynamic Generate","apiKey":"your-api-key","model":"gemini-2.5-flash-image","promptType":"msg","prompt":"payload","numberOfImages":1,"aspectRatio":"9:16","outputFormat":"base64","x":100,"y":300,"wires":[[],[]]}]</pre>
-    
-    <h4>Image Editing - Add Elements</h4>
-    <pre>[{"id":"example4","type":"inject","name":"Edit Image","props":[{"p":"payload","v":"Add a wizard hat to this cat","vt":"str"},{"p":"inputImages","v":"[\"https://example.com/cat.jpg\"]","vt":"json"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","x":100,"y":400,"wires":[["example5"]]},{"id":"example5","type":"gemini-image-generate","name":"Image Editor","apiKey":"your-api-key","model":"gemini-2.5-flash-image","mode":"edit","promptType":"msg","prompt":"payload","outputFormat":"file","x":300,"y":400,"wires":[[],[]]}]</pre>
-    
-    <h4>Image Editing - Style Transfer</h4>
-    <pre>[{"id":"example6","type":"inject","name":"Style Transfer","props":[{"p":"payload","v":"Transform this photo into Van Gogh's Starry Night style","vt":"str"},{"p":"inputImages","v":"[\"data:image/jpeg;base64,/9j/4AAQ...\"]","vt":"json"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","x":100,"y":500,"wires":[["example7"]]},{"id":"example7","type":"gemini-image-generate","name":"Style Transfer","apiKey":"your-api-key","model":"gemini-2.5-flash-image","mode":"edit","promptType":"msg","prompt":"payload","outputFormat":"buffer","x":300,"y":500,"wires":[[],[]]}]</pre>
-    
-    <h4>Image Editing - Local File Input</h4>
-    <pre>[{"id":"example8","type":"inject","name":"Edit Local File","props":[{"p":"payload","v":"Add a rainbow in the sky","vt":"str"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","x":100,"y":600,"wires":[["example9"]]},{"id":"example9","type":"gemini-image-generate","name":"Edit from File","apiKey":"your-api-key","model":"gemini-2.5-flash-image","mode":"edit","promptType":"msg","prompt":"payload","inputFile":"/home/user/landscape.jpg","inputFileType":"str","outputFormat":"file","x":300,"y":600,"wires":[[],[]]}]</pre>
-    
-    <h4>Custom Output Property</h4>
-    <pre>[{"id":"example10","type":"inject","name":"Custom Output","props":[{"p":"payload","v":"A majestic mountain landscape","vt":"str"},{"p":"originalData","v":"This data should be preserved","vt":"str"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","x":100,"y":700,"wires":[["example11"]]},{"id":"example11","type":"gemini-image-generate","name":"Generate to Custom Property","apiKey":"your-api-key","model":"gemini-2.5-flash-image","promptType":"msg","prompt":"payload","outputProperty":"generatedImage","outputFormat":"base64","x":300,"y":700,"wires":[[],[]]}]</pre>
-    
     <h3>Tips</h3>
     
     <h4>Text-to-Image Generation</h4>
