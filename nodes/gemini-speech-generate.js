@@ -424,22 +424,18 @@ module.exports = function(RED) {
                 const outputProperty = config.outputProperty || 'payload';
 
                 // Prepare success response
-                let successMsg;
+                // Always preserve incoming message properties
+                let successMsg = {...msg};
+
+                // Add additional metadata properties if passthrough is enabled
                 if (config.passthroughProperties) {
-                    // Include all incoming properties and add metadata
-                    successMsg = {
-                        ...msg,
-                        model: model,
-                        text: text,
-                        voiceConfig: config.speakerMode === 'multi' ? 'multi-speaker' : config.voiceName,
-                        speakerMode: config.speakerMode,
-                        outputFormat: config.outputFormat,
-                        audioMimeType: audioMimeType,
-                        usage: result.usageMetadata || null
-                    };
-                } else {
-                    // Only set the output property, no passthrough
-                    successMsg = {};
+                    successMsg.model = model;
+                    successMsg.text = text;
+                    successMsg.voiceConfig = config.speakerMode === 'multi' ? 'multi-speaker' : config.voiceName;
+                    successMsg.speakerMode = config.speakerMode;
+                    successMsg.outputFormat = config.outputFormat;
+                    successMsg.audioMimeType = audioMimeType;
+                    successMsg.usage = result.usageMetadata || null;
                 }
 
                 // Set the generated audio to the specified output property (supports dot notation)

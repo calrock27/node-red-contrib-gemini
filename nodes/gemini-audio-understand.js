@@ -384,22 +384,18 @@ module.exports = function(RED) {
                         const filePath = await writeAnalysisToFile(text, saveDirectory, node);
 
                         // Prepare success response with file path
-                        let successMsg;
+                        // Always preserve incoming message properties
+                        let successMsg = {...msg};
+
+                        // Add additional metadata properties if passthrough is enabled
                         if (config.passthroughProperties) {
-                            // Include all incoming properties and add metadata
-                            successMsg = {
-                                ...msg,
-                                model: model,
-                                prompt: prompt,
-                                audioCount: contentParts.length - 1,
-                                usage: result.usageMetadata || null,
-                                safetyRatings: candidate.safetyRatings || null,
-                                savedToFile: true,
-                                filePath: filePath
-                            };
-                        } else {
-                            // Only set the output property, no passthrough
-                            successMsg = {};
+                            successMsg.model = model;
+                            successMsg.prompt = prompt;
+                            successMsg.audioCount = contentParts.length - 1;
+                            successMsg.usage = result.usageMetadata || null;
+                            successMsg.safetyRatings = candidate.safetyRatings || null;
+                            successMsg.savedToFile = true;
+                            successMsg.filePath = filePath;
                         }
 
                         // Set the file path to the specified output property (supports dot notation)
@@ -420,20 +416,16 @@ module.exports = function(RED) {
                 } else {
                     // Text only output (default)
                     // Prepare success response
-                    let successMsg;
+                    // Always preserve incoming message properties
+                    let successMsg = {...msg};
+
+                    // Add additional metadata properties if passthrough is enabled
                     if (config.passthroughProperties) {
-                        // Include all incoming properties and add metadata
-                        successMsg = {
-                            ...msg,
-                            model: model,
-                            prompt: prompt,
-                            audioCount: contentParts.length - 1, // Subtract 1 for the text prompt
-                            usage: result.usageMetadata || null,
-                            safetyRatings: candidate.safetyRatings || null
-                        };
-                    } else {
-                        // Only set the output property, no passthrough
-                        successMsg = {};
+                        successMsg.model = model;
+                        successMsg.prompt = prompt;
+                        successMsg.audioCount = contentParts.length - 1; // Subtract 1 for the text prompt
+                        successMsg.usage = result.usageMetadata || null;
+                        successMsg.safetyRatings = candidate.safetyRatings || null;
                     }
 
                     // Set the analysis result to the specified output property (supports dot notation)

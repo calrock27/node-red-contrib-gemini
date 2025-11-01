@@ -423,23 +423,19 @@ module.exports = function(RED) {
                     const outputProperty = config.outputProperty || 'payload';
 
                     // Prepare success response with chat metadata
-                    let successMsg;
+                    // Always preserve incoming message properties
+                    let successMsg = {...msg};
+
+                    // Add additional metadata properties if passthrough is enabled
                     if (config.passthroughProperties) {
-                        // Include all incoming properties and add metadata
-                        successMsg = {
-                            ...msg,
-                            model: model,
-                            usage: result.usageMetadata || null,
-                            safetyRatings: result.candidates?.[0]?.safetyRatings || null,
-                            grounding: config.grounding || false,
-                            chat: {
-                                sessionId: sessionId,
-                                historyLength: chatHistory.length
-                            }
+                        successMsg.model = model;
+                        successMsg.usage = result.usageMetadata || null;
+                        successMsg.safetyRatings = result.candidates?.[0]?.safetyRatings || null;
+                        successMsg.grounding = config.grounding || false;
+                        successMsg.chat = {
+                            sessionId: sessionId,
+                            historyLength: chatHistory.length
                         };
-                    } else {
-                        // Only set the output property, no passthrough
-                        successMsg = {};
                     }
 
                     // Set the generated content to the specified output property (supports dot notation)
@@ -592,15 +588,18 @@ module.exports = function(RED) {
                         chunkCount++;
 
                         // Send each chunk as a separate message
-                        const chunkMsg = {
-                            ...msg,
-                            model: model,
-                            streaming: {
+                        // Always preserve incoming message properties
+                        const chunkMsg = {...msg};
+
+                        // Add metadata properties if passthrough is enabled
+                        if (config.passthroughProperties) {
+                            chunkMsg.model = model;
+                            chunkMsg.streaming = {
                                 chunk: chunkCount,
                                 isPartial: true,
                                 fullText: fullText
-                            }
-                        };
+                            };
+                        }
 
                         // Set the chunk content to the specified output property (supports dot notation)
                         RED.util.setMessageProperty(chunkMsg, outputProperty, chunkText);
@@ -616,20 +615,23 @@ module.exports = function(RED) {
                     }
 
                     // Send final message with complete response
-                    const finalMsg = {
-                        ...msg,
-                        model: model,
-                        usage: result.response?.usageMetadata || null,
-                        safetyRatings: result.response?.candidates?.[0]?.safetyRatings || null,
-                        grounding: config.grounding || false,
-                        streaming: {
+                    // Always preserve incoming message properties
+                    const finalMsg = {...msg};
+
+                    // Add metadata properties if passthrough is enabled
+                    if (config.passthroughProperties) {
+                        finalMsg.model = model;
+                        finalMsg.usage = result.response?.usageMetadata || null;
+                        finalMsg.safetyRatings = result.response?.candidates?.[0]?.safetyRatings || null;
+                        finalMsg.grounding = config.grounding || false;
+                        finalMsg.streaming = {
                             chunk: chunkCount + 1,
                             isPartial: false,
                             totalChunks: chunkCount,
                             fullText: fullText,
                             isComplete: true
-                        }
-                    };
+                        };
+                    }
 
                     // Set the complete text to the specified output property (supports dot notation)
                     RED.util.setMessageProperty(finalMsg, outputProperty, fullText);
@@ -802,19 +804,15 @@ module.exports = function(RED) {
                     const outputProperty = config.outputProperty || 'payload';
 
                     // Prepare success response
-                    let successMsg;
+                    // Always preserve incoming message properties
+                    let successMsg = {...msg};
+
+                    // Add additional metadata properties if passthrough is enabled
                     if (config.passthroughProperties) {
-                        // Include all incoming properties and add metadata
-                        successMsg = {
-                            ...msg,
-                            model: model,
-                            usage: result.usageMetadata || null,
-                            safetyRatings: result.candidates?.[0]?.safetyRatings || null,
-                            grounding: config.grounding || false
-                        };
-                    } else {
-                        // Only set the output property, no passthrough
-                        successMsg = {};
+                        successMsg.model = model;
+                        successMsg.usage = result.usageMetadata || null;
+                        successMsg.safetyRatings = result.candidates?.[0]?.safetyRatings || null;
+                        successMsg.grounding = config.grounding || false;
                     }
 
                     // Set the generated content to the specified output property (supports dot notation)

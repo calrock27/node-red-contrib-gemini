@@ -283,7 +283,7 @@
                     <span style="vertical-align:middle;">Passthrough Additional Properties</span>
                 </label>
                 <div style="margin-top:5px; margin-left:20px; font-size:12px; color:#666;">
-                    Controls what properties are sent to downstream nodes. When <strong>disabled</strong> (default), only the configured output property is sent, creating a clean message. When <strong>enabled</strong>, all incoming message properties pass through to downstream nodes along with the output.
+                    Controls additional metadata properties. When <strong>disabled</strong> (default), all incoming message properties are preserved and only the configured output property is added. When <strong>enabled</strong>, additional metadata properties (model, prompt, audioCount, usage, etc.) are also added to the output message.
                 </div>
             </div>
         </div>

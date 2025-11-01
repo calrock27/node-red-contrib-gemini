@@ -429,21 +429,17 @@ module.exports = function(RED) {
                 const outputProperty = config.outputProperty || 'payload';
 
                 // Prepare success response
-                let successMsg;
+                // Always preserve incoming message properties
+                let successMsg = {...msg};
+
+                // Add additional metadata properties if passthrough is enabled
                 if (config.passthroughProperties) {
-                    // Include all incoming properties and add metadata
-                    successMsg = {
-                        ...msg,
-                        model: model,
-                        prompt: prompt,
-                        imageCount: processedImages.length,
-                        aspectRatio: aspectRatio,
-                        outputFormat: config.outputFormat,
-                        usage: result.usageMetadata || null
-                    };
-                } else {
-                    // Only set the output property, no passthrough
-                    successMsg = {};
+                    successMsg.model = model;
+                    successMsg.prompt = prompt;
+                    successMsg.imageCount = processedImages.length;
+                    successMsg.aspectRatio = aspectRatio;
+                    successMsg.outputFormat = config.outputFormat;
+                    successMsg.usage = result.usageMetadata || null;
                 }
 
                 // Set the generated images to the specified output property (supports dot notation)
