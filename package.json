@@ -2,9 +2,8 @@
   "name": "node-red-contrib-gemini",
   "version": "1.0.1",
   "description": "Node-RED nodes for Google Gemini AI integration including text generation, chat, vision, image generation, speech generation, and audio understanding capabilities",
-  "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test/smoke.test.js"
   },
   "keywords": [
     "node-red",

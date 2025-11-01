@@ -1,0 +1,34 @@
+# Development files
+.claude/
+.github/
+ToDo
+CLAUDE.md
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing and CI/CD
+test/
+*.test.js
+*.spec.js
+
+# Node modules and package managers
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Build artifacts
+dist/
+build/
