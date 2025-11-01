@@ -10,43 +10,25 @@ const path = require('path');
 
 const errors = [];
 
-// Test 1: Verify all expected node files exist
-const nodesDir = path.join(__dirname, '../nodes');
-const expectedNodes = [
-  'nodes/generate.js',
-  'nodes/embedContent.js',
-  'nodes/batchEmbedContent.js',
-  'nodes/countTokens.js',
-  'nodes/models.js'
-];
-
 console.log('🔍 Validating package structure...\n');
 
-console.log('Checking node files:');
-expectedNodes.forEach(nodePath => {
-  const fullPath = path.join(__dirname, '..', nodePath);
-  if (fs.existsSync(fullPath)) {
-    console.log(`  ✓ ${nodePath}`);
-  } else {
-    console.log(`  ✗ ${nodePath} - NOT FOUND`);
-    errors.push(`Missing node file: ${nodePath}`);
-  }
-});
-
-// Test 2: Verify package.json
-console.log('\nChecking package.json:');
+// Test 1: Verify package.json and extract node definitions
+console.log('Checking package.json:');
 const packagePath = path.join(__dirname, '../package.json');
+let pkg;
+
 if (!fs.existsSync(packagePath)) {
   errors.push('package.json not found');
   console.log('  ✗ package.json - NOT FOUND');
+  process.exit(1);
 } else {
   try {
-    const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+    pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
     const requiredFields = ['name', 'version', 'description', 'license', 'node-red'];
 
     requiredFields.forEach(field => {
       if (pkg[field]) {
-        console.log(`  ✓ ${field}: ${typeof pkg[field] === 'object' ? JSON.stringify(pkg[field]) : pkg[field]}`);
+        console.log(`  ✓ ${field}: ${typeof pkg[field] === 'object' ? JSON.stringify(pkg[field]).substring(0, 50) + '...' : pkg[field]}`);
       } else {
         console.log(`  ✗ ${field} - MISSING`);
         errors.push(`Missing required field in package.json: ${field}`);
@@ -55,7 +37,31 @@ if (!fs.existsSync(packagePath)) {
   } catch (e) {
     errors.push(`Invalid package.json: ${e.message}`);
     console.log(`  ✗ Invalid JSON: ${e.message}`);
+    process.exit(1);
   }
+}
+
+// Test 2: Verify all node files defined in package.json exist
+console.log('\nChecking node files:');
+if (pkg['node-red'] && pkg['node-red'].nodes) {
+  const nodeDefinitions = pkg['node-red'].nodes;
+  const nodeCount = Object.keys(nodeDefinitions).length;
+
+  if (nodeCount === 0) {
+    console.log('  ⚠ No nodes defined in package.json');
+  } else {
+    Object.entries(nodeDefinitions).forEach(([nodeName, nodePath]) => {
+      const fullPath = path.join(__dirname, '..', nodePath);
+      if (fs.existsSync(fullPath)) {
+        console.log(`  ✓ ${nodePath}`);
+      } else {
+        console.log(`  ✗ ${nodePath} - NOT FOUND`);
+        errors.push(`Missing node file: ${nodePath}`);
+      }
+    });
+  }
+} else {
+  console.log('  ⚠ No nodes defined in package.json');
 }
 
 // Test 3: Verify locales directory
