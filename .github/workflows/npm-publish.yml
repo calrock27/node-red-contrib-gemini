@@ -1,5 +1,9 @@
-# This workflow updates the package version and publishes to NPM when a release is created
+# This workflow publishes the package to NPM when a release is created or manually triggered
 # Uses OIDC Trusted Publishing for enhanced security (no long-lived secrets)
+#
+# Triggers:
+# - Release: Create a GitHub release with a semantic version tag (v1.0.2 or 1.0.2)
+# - Manual: Go to Actions → Publish to NPM → Run workflow (optionally specify version)
 #
 # Setup required:
 # 1. Go to https://www.npmjs.com/package/node-red-contrib-gemini
@@ -10,14 +14,18 @@
 #    - Repository Name: node-red-contrib-gemini
 #    - Workflow Name: npm-publish.yml
 # 4. Ensure your NPM account has 2FA enabled
-#
-# The release tag should be a semantic version (e.g., v1.0.2 or 1.0.2)
 
 name: Publish to NPM
 
 on:
   release:
     types: [created]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 1.0.2) - if not provided, uses current package.json version'
+        required: false
+        type: string
 
 jobs:
   publish-npm:
@@ -37,15 +45,25 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org/
 
-      - name: Extract version from release tag
+      - name: Extract version
         id: version
         run: |
-          # Remove 'v' prefix if present
-          VERSION="${{ github.event.release.tag_name }}"
-          VERSION="${VERSION#v}"
+          # Get version from input (manual trigger) or release tag (release trigger)
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+            echo "Using manually provided version: ${VERSION}"
+          elif [ -n "${{ github.event.release.tag_name }}" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            # Remove 'v' prefix if present
+            VERSION="${VERSION#v}"
+            echo "Using release tag version: ${VERSION}"
+          else
+            # Fallback: use current package.json version
+            VERSION=$(node -p "require('./package.json').version")
+            echo "Using package.json version: ${VERSION}"
+          fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Release tag: ${{ github.event.release.tag_name }}"
-          echo "Extracted version: ${VERSION}"
+          echo "Version to publish: ${VERSION}"
 
       - name: Update package.json version
         run: |
