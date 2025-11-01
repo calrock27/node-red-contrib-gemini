@@ -3,7 +3,10 @@
 #
 # Triggers:
 # - Release: Create a GitHub release with a semantic version tag (v1.0.2 or 1.0.2)
-# - Manual: Go to Actions → Publish to NPM → Run workflow (optionally specify version)
+#   - Automatically bumps version in package.json and publishes
+# - Manual: Go to Actions → Publish to NPM → Run workflow
+#   - Optionally specify a version (or uses current package.json version)
+#   - Check "Skip version bump" checkbox to test without changing version (testing only)
 #
 # Setup required:
 # 1. Go to https://www.npmjs.com/package/node-red-contrib-gemini
@@ -26,6 +29,11 @@ on:
         description: 'Version to publish (e.g., 1.0.2) - if not provided, uses current package.json version'
         required: false
         type: string
+      skip-version-bump:
+        description: 'Skip version bump (for testing only) - does not update package.json'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   publish-npm:
@@ -66,16 +74,19 @@ jobs:
           echo "Version to publish: ${VERSION}"
 
       - name: Update package.json version
+        if: github.event_name == 'release' || github.event.inputs.skip-version-bump != 'true'
         run: |
           npm version ${{ steps.version.outputs.version }} --no-git-tag-version
           echo "Updated package.json to version ${{ steps.version.outputs.version }}"
 
       - name: Configure git
+        if: github.event_name == 'release' || github.event.inputs.skip-version-bump != 'true'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
       - name: Commit version change
+        if: github.event_name == 'release' || github.event.inputs.skip-version-bump != 'true'
         run: |
           git add package.json
           git commit -m "chore: bump version to ${{ steps.version.outputs.version }}" || echo "No changes to commit"
