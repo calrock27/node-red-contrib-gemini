@@ -100,10 +100,5 @@ jobs:
       - name: Verify package contents
         run: npm pack --dry-run
 
-      - name: Configure npm for OIDC publishing
-        run: |
-          npm config set registry https://registry.npmjs.org/
-          npm config set provenance true
-
       - name: Publish to NPM with provenance
-        run: npm publish --access public
+        run: npm publish --provenance --access public
