@@ -477,7 +477,10 @@ module.exports = function(RED) {
                 // Set contextual error status
                 const operation = config.outputFormat === 'file' ? 'save' : 'generation';
                 status.setError(model || 'gemini', error, { operation: operation });
-                
+
+                // Send error to Catch nodes (Node-RED best practice)
+                node.error(error.message, errorMsg);
+
                 // Route to second output port - flow continues, never halts
                 send([null, errorMsg]);
                 done(); // Complete successfully - no error passed to done()

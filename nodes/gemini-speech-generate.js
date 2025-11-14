@@ -472,6 +472,9 @@ module.exports = function(RED) {
                 const operation = config.outputFormat === 'file' ? 'save' : 'speech generation';
                 status.setError(model || 'gemini', error, { operation: operation });
 
+                // Send error to Catch nodes (Node-RED best practice)
+                node.error(error.message, errorMsg);
+
                 // Route to second output port
                 send([null, errorMsg]);
                 done();
