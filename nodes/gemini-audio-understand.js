@@ -456,6 +456,9 @@ module.exports = function(RED) {
                 const operation = config.outputFormat === 'file' ? 'file save' : 'analysis';
                 status.setError(model || 'gemini', error, { operation: operation });
 
+                // Make error catchable by catch nodes
+                node.error(error.message, errorMsg);
+
                 // Route to second output port
                 send([null, errorMsg]);
                 done();
